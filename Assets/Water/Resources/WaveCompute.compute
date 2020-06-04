@@ -1,0 +1,78 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel Tick
+#include "WaterHelperLib.cginc"
+#include "HLSLSupport.cginc"
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> WaveTexture;
+
+CBUFFER_START(WaveBuffer)
+float time;
+float2 direction;
+float2 wind;
+float steepness;
+float amplitude;
+float waveLength;
+float speed;
+CBUFFER_END
+
+
+
+
+[numthreads(8,8,1)]
+void Tick(uint3 id : SV_DispatchThreadID)
+{
+	float width, height;
+	WaveTexture.GetDimensions(width, height);
+
+	float2 uv = id.xy / float2(width, height);
+
+	direction *= (2 * 3.1415926) / 512.0;
+	wind *= (2 * 3.1415926) / 512.0;
+
+	// TODO: insert actual code here!
+	float3 binormal; float3 tagent; float3 normal;
+	float3 result = Gerstner(id.xy, direction, steepness, amplitude, waveLength, speed, time, binormal, tagent, normal);
+
+	//float2 wind = float2(1.5, 0.0);
+
+	direction = ((uv - 0.0) * 2 * 3.1415926) / 1.0;
+
+	float2 gp0 = gaussian_pair(uv, time);
+	float2 h0k = gp0 * (sqrt(PhilipSpectrum(amplitude, direction, wind, 9.8)) /  sqrt(2));
+
+	float2 gp1 = gaussian_pair(uv + float2(0.5, 0.1), time);
+	float2 h0mk = gp1 * (sqrt(PhilipSpectrum(amplitude, -direction, wind, 9.8)) / sqrt(2));
+	
+	float wkt = sqrt(9.8 * length(direction)) * time;
+
+	// exp(jwt) = cos(wt) + j * sin(wt)
+	float e_cos = cos(wkt);
+	float e_sin = sin(wkt);
+
+
+	float2 exp0 = float2( e_cos, e_sin);
+	float2 exp1 = float2( e_cos, -e_sin);
+
+	float2 h0k_exp = complex_mul(exp0, h0k);
+	float2 h0k_exp_inv = complex_mul(exp1, h0mk);
+
+	float2 h = h0k_exp + h0k_exp_inv;
+	
+	float2 e_x = float2(cos(direction.x * id.x / 1.0), sin(direction.x * id.x / 1.0));
+	float2 e_y = float2(cos(direction.y * id.y / 1.0), sin(direction.y * id.y / 1.0));
+
+	h = complex_mul(complex_mul(h, e_x), e_y);
+
+
+	float r = 0.5;
+	//h.x += h.y;
+	//result.xyz = float3(h.x, h.y, r);
+	result.xyz = float3(h.x, h.x, h.x);
+	result.xyz = float3(h.x, h.y, 0.0);
+	//result.xy = float2();
+	//result.xyz = float3(h0mk.x, h0mk.y, r);
+
+	WaveTexture[id.xy] = float4(result.x, result.y, result.z, 1.0);
+}
