@@ -1,0 +1,78 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel FFT
+#pragma kernel FFT_horizontal
+#pragma kernel FFT2D
+#pragma kernel FFT2D_horizontal
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+#include "WaterHelperLib.cginc"
+#include "HLSLSupport.cginc"
+
+Texture2D<float4> ButterflyTex;
+Texture2D<float4> pingpong;
+
+RWTexture2D<float4> Result;
+
+
+CBUFFER_START(FFTBuffer)
+int stage;
+CBUFFER_END
+
+
+
+[numthreads(16,16,1)]
+void FFT (uint3 id : SV_DispatchThreadID)
+{
+    float4 butterfly = ButterflyTex[float2(stage, id.x)];
+    float2 a = pingpong[float2(butterfly.z, id.y)].xy;
+    float2 b = pingpong[float2(butterfly.w, id.y)].xy;
+
+    float2 h = a + complex_mul(butterfly.xy, b);
+
+
+    Result[id.xy] = float4(h, 0.0, 1.0);
+}
+
+[numthreads(16,16,1)]
+void FFT_horizontal (uint3 id : SV_DispatchThreadID)
+{
+    float4 butterfly = ButterflyTex[float2(stage, id.y)];
+    float2 a = pingpong[float2(id.x, butterfly.z)].xy;
+    float2 b = pingpong[float2(id.x, butterfly.w)].xy;
+
+    float2 h = a + complex_mul(butterfly.xy, b);
+
+
+    Result[id.xy] = float4(h, 0, 1.0);
+    //Result[id.xy] = pingpong[id.xy];
+}
+
+
+[numthreads(16,16,1)]
+void FFT2D (uint3 id : SV_DispatchThreadID)
+{
+    float4 butterfly = ButterflyTex[float2(stage, id.x)];
+    float4 a = pingpong[float2(butterfly.z, id.y)];
+    float4 b = pingpong[float2(butterfly.w, id.y)];
+
+    float2 h1 = a.xy + complex_mul(butterfly.xy, b.xy);
+    float2 h2 = a.zw + complex_mul(butterfly.xy, b.zw);
+
+
+    Result[id.xy] = float4(h1, h2);
+}
+
+[numthreads(16,16,1)]
+void FFT2D_horizontal (uint3 id : SV_DispatchThreadID)
+{
+    float4 butterfly = ButterflyTex[float2(stage, id.y)];
+    float4 a = pingpong[float2(id.x, butterfly.z)];
+    float4 b = pingpong[float2(id.x, butterfly.w)];
+
+    float2 h1 = a.xy + complex_mul(butterfly.xy, b.xy);
+    float2 h2 = a.zw + complex_mul(butterfly.xy, b.zw);
+
+
+    Result[id.xy] = float4(h1, h2);
+}

@@ -59,11 +59,12 @@ float nrand(float2 n)
 
 float2 gaussian_pair(float2 n, float time)
 {
-	float r1 = nrand(n);
-	float r2 = nrand(n + n.x * n.y);
+	float r1 = clamp(abs(nrand(n)), 0.00001, .999999);
+	float r2 = abs(nrand(n + n.x * n.y ));
 	float u = 2.0 * M_PI * r2;
-	float v = sqrt(-2.0 * log(r2));
+	float v = sqrt(-2.0 * log(r1));
 
+    //return float2(r1, r2);
 	return float2(v * cos(u), v * sin(u));
 }
 
@@ -77,6 +78,7 @@ float PhilipSpectrum(float amplitude, float2 wavevector, float2 wind, float grav
 	float waveLength = length(wavevector);
 	float windLength = length(wind);
 
+    //float L = ((windLength * windLength) * (windLength * windLength)) / gravity;
 	float L = (windLength * windLength) / gravity;
 
 	return (amplitude * exp(-1 / (waveLength * L)) * (dot_wave_wind * dot_wave_wind)) / (waveLength * waveLength * waveLength * waveLength);
