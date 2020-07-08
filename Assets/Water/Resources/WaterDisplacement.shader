@@ -4,6 +4,7 @@
 	{
 		_MainTex ("Texture", 2D) = "white" {}
 		_Scale("Scale", Float) = 0
+        _DisplacementScale("DisplacementScale", Float) = 0.5
 	}
 	SubShader
 	{
@@ -40,6 +41,7 @@
 			sampler2D _Displacement;
 			float4 _MainTex_ST;
 			float _Scale;
+            float _DisplacementScale;
 			
 			v2f vert (appdata v)
 			{
@@ -48,11 +50,11 @@
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 				UNITY_TRANSFER_FOG(o,o.vertex);
 
-				float4 height = tex2Dlod(_Height, float4(o.uv / 1.0, 0.0, 0.0));
-                float4 displacement = tex2Dlod(_Displacement, float4(o.uv / 1.0, 0.0, 0.0));
+				float4 height = tex2Dlod(_Height, float4(o.uv / 10.0, 0.0, 0.0));
+                float4 displacement = tex2Dlod(_Displacement, float4(o.uv / 10.0, 0.0, 0.0));
 
                 o.vertex.y += height.x * _Scale;
-                o.vertex.xz += float2(displacement.x, displacement.z) * _Scale * 0.4;
+                o.vertex.xz += float2(displacement.x, displacement.z) * _DisplacementScale;
                 //o.vertex.x += displacement.x * _Scale;
 				//o.vertex.xz += float2(3, 3) * _Scale;
                 o.color.xyz = height.x * _Scale;
