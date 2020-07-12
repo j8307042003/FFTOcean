@@ -89,7 +89,7 @@ public class WaterSys : MonoBehaviour {
     public bool bShowDebug = true;
 
     public RenderTexture displacement;
-    WaterRenderData renderData;
+    public WaterRenderData renderData;
     ComputeShader waveCompute;
     int waveKernel;
     ComputeShader waveTexture;
@@ -234,8 +234,8 @@ public class WaterSys : MonoBehaviour {
         
         _commandBuffer.SetComputeTextureParam(waveTexture, waveNormalKernel, Shader.PropertyToID("WaveDisplacement"), renderData.displacementMapDataArray[0]);
         _commandBuffer.SetComputeTextureParam(waveTexture, waveNormalKernel, Shader.PropertyToID("WaveNormal"), renderData.normalDataArray[0]);
-        //_commandBuffer.DispatchCompute(waveTexture, waveNormalKernel, renderData.displacementMapDataArray[0].width / 16, renderData.displacementMapDataArray[0].height / 16, 1);
-        
+        _commandBuffer.DispatchCompute(waveTexture, waveNormalKernel, renderData.displacementMapDataArray[0].width / 16, renderData.displacementMapDataArray[0].height / 16, 1);
+
         UnityEngine.Profiling.Profiler.BeginSample("My Command Buffer");
         Graphics.ExecuteCommandBuffer(_commandBuffer);
         UnityEngine.Profiling.Profiler.EndSample();
@@ -267,7 +267,8 @@ public class WaterSys : MonoBehaviour {
         Debug.Log(sb.ToString());
         */
         waterSurface.SetTexture("_Height", renderData.GetRenderTexArray()[0]);
-        waterSurface.SetTexture("_Displacement", renderData.displacementDataArray[0]);
+        //waterSurface.SetTexture("_Displacement", renderData.displacementDataArray[0]);
+        waterSurface.SetTexture("_Displacement", renderData.displacementMapDataArray[0]);
         waterSurface.SetTexture("_Normal", renderData.normalDataArray[0]);
 
     }
@@ -330,6 +331,9 @@ public class WaterSys : MonoBehaviour {
 
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), butterFlyTex, ScaleMode.StretchToFill, false);
     }
+    
+
+
 
 
 }

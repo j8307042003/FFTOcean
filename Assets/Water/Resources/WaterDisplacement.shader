@@ -57,12 +57,13 @@ Shader "Unlit/WaterDisplacement"
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 				UNITY_TRANSFER_FOG(o,o.vertex);
 
-				float4 height = tex2Dlod(_Height, float4(o.uv / 5.0, 0.0, 0.0));
+                float4 height = tex2Dlod(_Height, float4(o.uv / 5.0, 0.0, 0.0));
                 float4 displacement = tex2Dlod(_Displacement, float4(o.uv / 5.0, 0.0, 0.0));
 
                 float4 worldPos = mul(unity_ObjectToWorld, v.vertex);
 
-                worldPos.y += height.x * _Scale;
+                //worldPos.y += height.x * _Scale;
+                worldPos.y += displacement.y * _Scale;
                 worldPos.xz += float2(displacement.x, displacement.z) * _DisplacementScale;
                 o.worldPos = worldPos;
                 v.vertex = mul(unity_WorldToObject, worldPos);
@@ -148,7 +149,7 @@ normal = float3(N.x, N.z, N.y);
                 float3 specular = saturate(intensity * light);
                 specular = 0;
                 
-                col.xyz = diffuse + specular;
+                //col.xyz = diffuse + specular;
 
                 //float l = length(_WorldSpaceCameraPos.xz - worldPos.xz) / 100.0;
                 //col.xyz = l;
