@@ -7,6 +7,7 @@
 // with cs.SetTexture
 RWTexture2D<float4> WaveTexture;
 RWTexture2D<float4> WaveDisplacement;
+RWTexture2D<float4> WaveNormal;
 
 CBUFFER_START(WaveBuffer)
 float time;
@@ -47,7 +48,7 @@ void Tick(uint3 id : SV_DispatchThreadID)
 	//float2 gp1 = gaussian_pair(uv, time);
 	float2 h0mk = gp1 * (sqrt(PhilipSpectrum(amplitude, -k, windDir, 9.8)) / sqrt(2));
 	
-	float wkt = sqrt(9.8 * length(k)) * time * 60;
+	float wkt = sqrt(9.8 * length(k)) * time * 10;
 
 	// exp(jwt) = cos(wt) + j * sin(wt)
 	float e_cos = cos(wkt);
@@ -65,9 +66,13 @@ void Tick(uint3 id : SV_DispatchThreadID)
     //xz : -i * (K / |k|) * h(K, t)
     float2 d_x = complex_mul(float2(0, -1), complex_mul(float2(k.x / length(k), 0), h));
     float2 d_y = complex_mul(float2(0, -1), complex_mul(float2(k.y / length(k), 0), h));
+
+    float2 n_x = complex_mul(float2(0, 1), complex_mul(float2(k.x, 0), h));
+    float2 n_y = complex_mul(float2(0, 1), complex_mul(float2(k.y, 0), h));
     
     float3 result;
 	result.xyz = float3(h.x, h.y, 0.0);
 	WaveTexture[id.xy] = float4(result.x, result.y, 1.0, 1.0);
     WaveDisplacement[id.xy] = float4(d_x.x, d_x.y, d_y.x, d_y.y);
+    WaveNormal[id.xy] = float4(n_x.x, n_x.y, n_y.x, n_y.y);
 }
