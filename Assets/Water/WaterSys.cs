@@ -35,6 +35,7 @@ public class WaterRenderData
 {
     const int LodNum = 8;
     public const int TextureSize = 512;
+    public float unitLength = 1.0f; //meters
 
     public RenderTexture[] dataArray;
     public RenderTexture[] displacementDataArray;
@@ -90,6 +91,7 @@ public class WaterSys : MonoBehaviour {
 
     public RenderTexture displacement;
     public WaterRenderData renderData;
+    public float unit_length = 1000.0f;
     ComputeShader waveCompute;
     int waveKernel;
     ComputeShader waveTexture;
@@ -129,6 +131,7 @@ public class WaterSys : MonoBehaviour {
     {
 
         renderData = new WaterRenderData();
+        renderData.unitLength = 1000.0f;
         butterFlyTex = WaterSysHelper.CreateRenderTexture((int)Mathf.Log(renderData.dataArray[0].width, 2), renderData.dataArray[0].width, RenderTextureFormat.ARGBInt);
         waveCompute = WaterSysHelper.LoadComputeShader(WaterSysType.WaveComputeShaderName);
         waveKernel = waveCompute.FindKernel(WaterSysType.WaveComputeKernel);
@@ -179,7 +182,7 @@ public class WaterSys : MonoBehaviour {
         }
         return res;
     }
-    float t = 0;
+    
 
 
 
@@ -191,12 +194,15 @@ public class WaterSys : MonoBehaviour {
             tmp.Apply();
         }
 
+        renderData.unitLength = unit_length;
+
         _commandBuffer = new CommandBuffer();
 
         _commandBuffer.SetComputeTextureParam(waveCompute, waveKernel, Shader.PropertyToID("WaveTexture"), renderData.GetRenderTexArray()[0]);
         _commandBuffer.SetComputeTextureParam(waveCompute, waveKernel, Shader.PropertyToID("WaveDisplacement"), renderData.displacementDataArray[0]);
         _commandBuffer.SetComputeTextureParam(waveCompute, waveKernel, Shader.PropertyToID("WaveNormal"), renderData.normalDataArray[0]);
         _commandBuffer.SetComputeFloatParam(waveCompute, Shader.PropertyToID("time"), Time.time);
+        _commandBuffer.SetComputeFloatParam(waveCompute, Shader.PropertyToID("unitLen"), renderData.unitLength);
 
         _commandBuffer.SetComputeVectorParam(waveCompute, Shader.PropertyToID("direction"), direction);
         _commandBuffer.SetComputeVectorParam(waveCompute, Shader.PropertyToID("wind"), wind);
@@ -212,15 +218,7 @@ public class WaterSys : MonoBehaviour {
         _commandBuffer.SetComputeTextureParam(butterFlyCS, butterflyKernel, Shader.PropertyToID("Result"), butterFlyTex);
         _commandBuffer.DispatchCompute(butterFlyCS, butterflyKernel, butterFlyTex.width, butterFlyTex.height / 8, 1);
 
-        t += Time.deltaTime;
-        if (t > 1) {
-            t = 0;
-            //it++;
-            //it %= 10;
-        }
-
-        //Debug.LogError(it);
-        //for (int i = 0; i < butterFlyTex.width; i++)
+        
         FFT(renderData.GetRenderTexArray()[0]);
         FFT2D(renderData.displacementDataArray[0]);
         FFT2D(renderData.normalDataArray[0]);
@@ -234,6 +232,7 @@ public class WaterSys : MonoBehaviour {
         
         _commandBuffer.SetComputeTextureParam(waveTexture, waveNormalKernel, Shader.PropertyToID("WaveDisplacement"), renderData.displacementMapDataArray[0]);
         _commandBuffer.SetComputeTextureParam(waveTexture, waveNormalKernel, Shader.PropertyToID("WaveNormal"), renderData.normalDataArray[0]);
+        _commandBuffer.SetComputeFloatParam(waveTexture, Shader.PropertyToID("unitLen"), renderData.unitLength);
         _commandBuffer.DispatchCompute(waveTexture, waveNormalKernel, renderData.displacementMapDataArray[0].width / 16, renderData.displacementMapDataArray[0].height / 16, 1);
 
         UnityEngine.Profiling.Profiler.BeginSample("My Command Buffer");
@@ -270,6 +269,7 @@ public class WaterSys : MonoBehaviour {
         //waterSurface.SetTexture("_Displacement", renderData.displacementDataArray[0]);
         waterSurface.SetTexture("_Displacement", renderData.displacementMapDataArray[0]);
         waterSurface.SetTexture("_Normal", renderData.normalDataArray[0]);
+        waterSurface.SetFloat("unitLen", renderData.unitLength);
 
     }
 
@@ -306,7 +306,7 @@ public class WaterSys : MonoBehaviour {
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFT2DKernel, Shader.PropertyToID("pingpong"), renderTex);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFT2DKernel, Shader.PropertyToID("ButterflyTex"), butterFlyTex);
             _commandBuffer.DispatchCompute(FFTCompute, FFT2DKernel, renderTex.width / 16, renderTex.height / 16, 1);
-            _commandBuffer.Blit(pingpongTex, renderData.displacementDataArray[0]);
+            _commandBuffer.Blit(pingpongTex, renderTex);
         }
 
         for (int i = Mathf.Min(0, it - 1); i < it; i++)

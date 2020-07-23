@@ -13,12 +13,14 @@ RWTexture2D<float4> WaveHorizontal;
 RWTexture2D<float4> WaveDisplacement;
 RWTexture2D<float4> WaveNormal;
 
+float unitLen; //Meters
+
 [numthreads(16,16,1)]
 void WaveTexture (uint3 id : SV_DispatchThreadID)
 {
     float h = WaveHeightField[id.xy].x;
     float4 horizontalData = WaveHorizontal[id.xy];
-
+	
     WaveDisplacement[id.xy] = float4(horizontalData.x, h, horizontalData.z, 1.0);
 }
 
@@ -26,16 +28,50 @@ void WaveTexture (uint3 id : SV_DispatchThreadID)
 [numthreads(16,16,1)]
 void WaveNormalKernel(uint3 id : SV_DispatchThreadID)
 {
-    float4 x1 = WaveDisplacement[id.xy+uint2( 1, 0)];
-    float4 x2 = WaveDisplacement[id.xy+uint2(-1, 0)];
+	float width, height;
+	WaveDisplacement.GetDimensions(width, height);
+	//unitLen = 1.0;
+	uint2 uv;
+	uv = id.xy + uint2(1, 0);
+	uv = uv % (int)width;
+	float4 x1 = WaveDisplacement[uv];
 
-    float4 y1 = WaveDisplacement[id.xy+uint2( 0, 1)];
-    float4 y2 = WaveDisplacement[id.xy+uint2( 0, -1)];
+	uv = id.xy + uint2(-1, 0);
+	uv = uv % (int)width;
+	float4 x2 = WaveDisplacement[uv];
 
-    float3 d_x = (x1 - x2).xyz;
-    float3 d_y = (y1 - y2).xyz;
+	uv = id.xy + uint2(0, 1);
+	uv = uv % (int)width;
+	float4 y1 = WaveDisplacement[uv];
+
+	uv = id.xy + uint2(0, -1);
+	uv = uv % (int)width;
+	float4 y2 = WaveDisplacement[uv];
+
+	float3 d_x = float3(-unitLen, (x1 - x2).y, 0);
+	float3 d_y = float3(0, (y1 - y2).y, -unitLen);
 
 
-    float3 normal = normalize(cross(d_x, d_y));
-    WaveNormal[id.xy] = float4(normal, 1.0);
+	float3 normal = normalize(cross(d_x, d_y));
+	normal.y = abs(normal.y); // y is always up for now
+	WaveNormal[id.xy] = float4(normal, 1.0);
 }
+
+
+
+/* tmp
+float nScale = 1.0 / 10;
+float uPixel = 1.0 / 512.0;
+float vPixel = 1.0 / 512.0;
+float4 uv = float4(o.uv / 5.0, 0, 0);
+float height_pu = tex2Dlod(_Displacement, uv + float4(uPixel, 0, 0, 0)).y;
+float height_mu = tex2Dlod(_Displacement, uv - float4(uPixel, 0, 0, 0)).y;
+float height_pv = tex2Dlod(_Displacement, uv + float4(0, vPixel, 0, 0)).y;
+float height_mv = tex2Dlod(_Displacement, uv - float4(0, vPixel, 0, 0)).y;
+float du = height_mu - height_pu;
+float dv = height_mv - height_pv;
+float3 N = normalize(float3(du, dv, 1.0/nScale));
+normal = N;
+normal = float3(N.x, N.z, N.y);
+
+*/

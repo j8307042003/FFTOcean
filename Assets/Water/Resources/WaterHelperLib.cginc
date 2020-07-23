@@ -69,7 +69,7 @@ float2 gaussian_pair(float2 n, float time)
 }
 
 
-float PhilipSpectrum(float amplitude, float2 wavevector, float2 wind, float gravity) 
+float PhilipSpectrum(float amplitude, double2 wavevector, float2 wind, float gravity) 
 {
 	float2 waveDir = normalize(wavevector);
 	float2 windDir = normalize(wind);
@@ -81,7 +81,7 @@ float PhilipSpectrum(float amplitude, float2 wavevector, float2 wind, float grav
     //float L = ((windLength * windLength) * (windLength * windLength)) / gravity;
 	float L = (windLength * windLength) / gravity;
 
-	return (amplitude * exp(-1 / (waveLength * L)) * (dot_wave_wind * dot_wave_wind)) / (waveLength * waveLength * waveLength * waveLength);
+	return (amplitude * exp(-1 / ( (waveLength * L) * (waveLength * L) ) ) * (dot_wave_wind * dot_wave_wind)) / (waveLength * waveLength * waveLength * waveLength);
 }
 
 

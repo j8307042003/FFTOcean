@@ -43,6 +43,7 @@ public class WaterSurface : MonoBehaviour {
 
     private void OnDrawGizmos()
     {
+        /*
         if (WaterSys.instance == null) return;
         var rt = RenderTexture.active;
         RenderTexture.active = WaterSys.instance.renderData.displacementMapDataArray[0];
@@ -54,7 +55,7 @@ public class WaterSurface : MonoBehaviour {
         MeshFilter meshfilter = GetComponent<MeshFilter>();
         Mesh m = meshfilter.mesh;
 
-        //return;
+        return;
         var origin = transform.position;
         for (int i = 0; i < m.vertices.Length; ++i)
         {
@@ -68,6 +69,7 @@ public class WaterSurface : MonoBehaviour {
             //Gizmos.DrawRay(new Ray(location, new Vector3(0, 1,0)));
             Gizmos.DrawRay(new Ray(location, n));
         }
+        */
 
     }
 }

@@ -8,6 +8,8 @@ Shader "Unlit/WaterDisplacement"
         _BaseColor("BaseColor", COLOR) = (1.0, 1.0, 1.0, 1.0)
 		_Scale("Scale", Float) = 0
         _DisplacementScale("DisplacementScale", Float) = 0.5
+		_SSS_Wrap("SSS_Wrap", Range(0, 1)) = 0
+		_SSS_Tint("SSS tint", COLOR) = (1.0, 1.0, 1.0, 1.0)
 	}
 	SubShader
 	{
@@ -23,6 +25,7 @@ Shader "Unlit/WaterDisplacement"
 			#pragma multi_compile_fog
 			
 			#include "UnityCG.cginc"
+			#include "UnityLightingCommon.cginc"
             
 
 			struct appdata
@@ -47,8 +50,11 @@ Shader "Unlit/WaterDisplacement"
             sampler2D _Normal;
 			float4 _MainTex_ST;
             float4 _BaseColor;
+			float4 _SSS_Tint;
 			float _Scale;
             float _DisplacementScale;
+			float unitLen;
+			float _SSS_Wrap;
 			
 			v2f vert (appdata v)
 			{
@@ -57,45 +63,31 @@ Shader "Unlit/WaterDisplacement"
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 				UNITY_TRANSFER_FOG(o,o.vertex);
 
-                float4 height = tex2Dlod(_Height, float4(o.uv / 5.0, 0.0, 0.0));
-                float4 displacement = tex2Dlod(_Displacement, float4(o.uv / 5.0, 0.0, 0.0));
+				float sampleScale = 2.0;
+                float4 height = tex2Dlod(_Height, float4(o.uv / sampleScale, 0.0, 0.0));
+                
 
                 float4 worldPos = mul(unity_ObjectToWorld, v.vertex);
 
-                //worldPos.y += height.x * _Scale;
+				float2 samplePos = worldPos.xz / (unitLen) + .5;
+
+				//x = (nLx / N, mLz / M)
+
+				float4 displacement = tex2Dlod(_Displacement, float4(samplePos, 0.0, 0.0));
+
+
                 worldPos.y += displacement.y * _Scale;
                 worldPos.xz += float2(displacement.x, displacement.z) * _DisplacementScale;
                 o.worldPos = worldPos;
+
                 v.vertex = mul(unity_WorldToObject, worldPos);
                 o.vertex = UnityObjectToClipPos(v.vertex);
 
                 o.color.xyz = height.x * _Scale;
 
 
-                float4 normalData = tex2Dlod(_Normal, float4(o.uv / 5.0, 0.0, 0.0));
-                float2 n = float2(normalData.x, normalData.z);
-                float3 n_dir = float3(n.x, 0, n.y)*70000;
-                
-                //float3 normal = (float3(0, 1, 0) - n_dir) / sqrt(1+dot(n_dir, n_dir));
-                float3 normal = normalize(float3(0, 1, 0) - n_dir);
-                normal.z = 0;
-                normal.y = 0;
-                //float3 normal = normalData.xyz;
-
-float nScale = 1.0;
-float uPixel = 1.0 / 512.0;
-float vPixel = 1.0 / 512.0;
-float4 uv = float4(o.uv / 5.0, 0, 0);
-float height_pu = tex2Dlod(_Displacement, uv + float4(uPixel, 0, 0, 0)).y;
-float height_mu = tex2Dlod(_Displacement, uv - float4(uPixel, 0, 0, 0)).y;
-float height_pv = tex2Dlod(_Displacement, uv + float4(0, vPixel, 0, 0)).y;
-float height_mv = tex2Dlod(_Displacement, uv - float4(0, vPixel, 0, 0)).y;
-float du = height_mu - height_pu;
-float dv = height_mv - height_pv;
-float3 N = normalize(float3(du, dv, 1.0/nScale));
-normal = N;
-normal = float3(N.x, N.z, N.y);
-
+                float4 normalData = tex2Dlod(_Normal, float4(samplePos, 0.0, 0.0));
+				float3 normal = normalData.xyz;
                 o.worldNormal = normal;
                 
 				return o;
@@ -110,47 +102,69 @@ normal = float3(N.x, N.z, N.y);
 
                 return intensity;
             }
-			
+
+
+			float Fresnel(float etaI, float etaT, float cosThetaI) {
+				float sinThetaI = sqrt(max(0, 1 - cosThetaI * cosThetaI));
+				float sinThetaT = etaI / etaT * sinThetaI;
+				if (sinThetaT >= 1) return 1;
+				float cosThetaT = sqrt(max(0, 1 - sinThetaT * sinThetaT));
+
+				float Rparl = (etaT * cosThetaI - etaI * cosThetaT) /
+					(etaT * cosThetaI + etaI * cosThetaT);
+				float Rparp = (etaI * cosThetaI - etaT * cosThetaT) /
+					(etaI * cosThetaI + etaT * cosThetaT);
+
+				return clamp((Rparl * Rparl + Rparp * Rparp) / 2, 0, 1);
+			}
+
 			fixed4 frag (v2f i) : SV_Target
 			{
 				// sample the texture
 				fixed4 col = tex2D(_MainTex, i.uv);
-				float displacement = tex2D(_Displacement, i.uv / 5.0).x;
-                i.color.x = displacement * .6;
 				UNITY_APPLY_FOG(i.fogCoord, col);
-				//col.xyz = float3(displacement, displacement, displacement);
 				col.xyz = float3(i.uv, 0.0);
-                //col.xyz = i.color.xyz * float3(0,0,.7);
-                //col.xyz = lerp(float3(1, 1, 1) * .9, float3(0,0,.75), i.color.x);
-                //col.xyz = lerp(float3(0,0,.75), float3(1, 1, 1) * .9, i.color.x);
-                //col.xyz = lerp(float3(0, 1, .7) * .9, float3(0,.5,.75), i.color.x);
-                float d = displacement ;
-                
-                col.xyz = i.worldNormal;
+				col.xyz = i.worldNormal;
 
 
-
-                float3 light = float3(1, 1, 1);
-                float3 lightDir = normalize(float3(1, 1, 0));
+				float3 light = _LightColor0.xyz;
+				float3 lightDir = _WorldSpaceLightPos0.xyz;
                 float3 worldPos = i.worldPos;
-                //float3 lightColor = float3()
-                //lighting
-                //col.xyz = _BaseColor;
+				float3 viewDir = normalize(_WorldSpaceCameraPos - worldPos);
+				
+				float cosTheta = dot(normalize(i.worldNormal.xyz), viewDir);
+				float reflective = Fresnel(1, 1.325, cosTheta);
 
-                //diffuse
+				//diffuse
                 float NLDot = saturate(dot(lightDir, i.worldNormal.xyz));
                 float intensity = saturate(.5 + NLDot);
                 float3 diffuse = saturate(intensity * light * _BaseColor);
 
+				float3 reflectDir = reflect(viewDir, i.worldNormal);
+				half4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflectDir);
 
-                float3 viewDir = normalize(_WorldSpaceCameraPos - worldPos);
-                
-                intensity = Phong(i.worldNormal.xyz, viewDir, lightDir);
-                float3 specular = saturate(intensity * light);
-                specular = 0;
-                
-                //col.xyz = diffuse + specular;
+				float scatterWidth = 0.5;
+				float3 scatterColor = float3(0.0, 0.5, 0.0);
+				float shininess = 40.0;
 
+				float wrap_diffuse = max(0, (NLDot + _SSS_Wrap) / (1 + _SSS_Wrap));
+
+				float scatter = smoothstep(0.0, scatterWidth, wrap_diffuse) *
+					smoothstep(scatterWidth * 2.0, scatterWidth,
+						wrap_diffuse);
+
+
+				scatterColor = scatter * _SSS_Tint.xyz;// *diffuse;
+				//scatter = wrap_diffuse;
+                //intensity = Phong(i.worldNormal.xyz, viewDir, lightDir);
+                //float3 specular = saturate(intensity * light);
+				//reflective = 0.0;
+				//diffuse = 0;
+				float3 specular = skyData.xyz * reflective;
+				//scatterColor = 0;
+                col.xyz = (diffuse + scatterColor) + specular;
+				//col.xyz = reflectDir;
+				//col.xyz = reflective;
                 //float l = length(_WorldSpaceCameraPos.xz - worldPos.xz) / 100.0;
                 //col.xyz = l;
                 //col.xyz = n_dir;
