@@ -13,11 +13,11 @@ public class WaterSysHelper
         return s;
     }
 
-    public static RenderTexture CreateRenderTexture(int width, int height, RenderTextureFormat format = RenderTextureFormat.ARGBFloat)
+    public static RenderTexture CreateRenderTexture(int width, int height, RenderTextureFormat format = RenderTextureFormat.ARGBFloat, FilterMode filterMode = FilterMode.Point)
     {
         RenderTexture rt = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBFloat);
         rt.hideFlags = HideFlags.DontSave;
-        rt.filterMode = FilterMode.Point;
+        rt.filterMode = filterMode;
         rt.wrapMode = TextureWrapMode.Repeat;
         rt.enableRandomWrite = true;
         rt.useMipMap = false;
@@ -52,7 +52,7 @@ public class WaterRenderData
         {
             dataArray[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize);
             displacementDataArray[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize);
-            normalDataArray[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize);
+            normalDataArray[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize, filterMode: FilterMode.Bilinear);
             displacementMapDataArray[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize);
         }
     }
@@ -87,7 +87,12 @@ public class WaterSys : MonoBehaviour {
 
     public Material mat;
 
-    public bool bShowDebug = true;
+    public bool bShowDisplacement = true;
+    public bool bShowNormal = false;
+
+    [Range(0, 10)]
+    public float timeScale = 1.0f;
+
 
     public RenderTexture displacement;
     public WaterRenderData renderData;
@@ -201,7 +206,7 @@ public class WaterSys : MonoBehaviour {
         _commandBuffer.SetComputeTextureParam(waveCompute, waveKernel, Shader.PropertyToID("WaveTexture"), renderData.GetRenderTexArray()[0]);
         _commandBuffer.SetComputeTextureParam(waveCompute, waveKernel, Shader.PropertyToID("WaveDisplacement"), renderData.displacementDataArray[0]);
         _commandBuffer.SetComputeTextureParam(waveCompute, waveKernel, Shader.PropertyToID("WaveNormal"), renderData.normalDataArray[0]);
-        _commandBuffer.SetComputeFloatParam(waveCompute, Shader.PropertyToID("time"), Time.time);
+        _commandBuffer.SetComputeFloatParam(waveCompute, Shader.PropertyToID("time"), Time.time * timeScale);
         _commandBuffer.SetComputeFloatParam(waveCompute, Shader.PropertyToID("unitLen"), renderData.unitLength);
 
         _commandBuffer.SetComputeVectorParam(waveCompute, Shader.PropertyToID("direction"), direction);
@@ -233,6 +238,7 @@ public class WaterSys : MonoBehaviour {
         _commandBuffer.SetComputeTextureParam(waveTexture, waveNormalKernel, Shader.PropertyToID("WaveDisplacement"), renderData.displacementMapDataArray[0]);
         _commandBuffer.SetComputeTextureParam(waveTexture, waveNormalKernel, Shader.PropertyToID("WaveNormal"), renderData.normalDataArray[0]);
         _commandBuffer.SetComputeFloatParam(waveTexture, Shader.PropertyToID("unitLen"), renderData.unitLength);
+        _commandBuffer.SetComputeVectorParam(waveTexture, Shader.PropertyToID("targetPos"), new Vector4(Mathf.Sin(Time.time), Mathf.Cos(Time.time), 0, 0) * (100) + new Vector4(256, 256));
         _commandBuffer.DispatchCompute(waveTexture, waveNormalKernel, renderData.displacementMapDataArray[0].width / 16, renderData.displacementMapDataArray[0].height / 16, 1);
 
         UnityEngine.Profiling.Profiler.BeginSample("My Command Buffer");
@@ -323,11 +329,11 @@ public class WaterSys : MonoBehaviour {
     
     private void OnGUI()
     {
-        if (!bShowDebug) return;
+        if (bShowDisplacement) GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementMapDataArray[0], ScaleMode.StretchToFill, false);
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.GetRenderTexArray()[0]);
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementDataArray[0], ScaleMode.StretchToFill, false);
-        //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.normalDataArray[0], ScaleMode.StretchToFill, false);
-        GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementMapDataArray[0], ScaleMode.StretchToFill, false);
+        if(bShowNormal)GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.normalDataArray[0], ScaleMode.StretchToFill, false);
+        //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementMapDataArray[0], ScaleMode.StretchToFill, false);
 
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), butterFlyTex, ScaleMode.StretchToFill, false);
     }

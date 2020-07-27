@@ -15,7 +15,7 @@ Shader "Unlit/WaterDisplacement"
 	{
 		Tags { "RenderType"="Opaque" }
 		LOD 100
-        Cull Off
+        //Cull Off
 		Pass
 		{
 			CGPROGRAM
@@ -26,7 +26,7 @@ Shader "Unlit/WaterDisplacement"
 			
 			#include "UnityCG.cginc"
 			#include "UnityLightingCommon.cginc"
-            
+			#include "UnityGlobalIllumination.cginc"
 
 			struct appdata
 			{
@@ -69,7 +69,12 @@ Shader "Unlit/WaterDisplacement"
 
                 float4 worldPos = mul(unity_ObjectToWorld, v.vertex);
 
-				float2 samplePos = worldPos.xz / (unitLen) + .5;
+				//float2 samplePos = worldPos.xz / (unitLen) + .5;
+
+				
+				//float width, height;
+				//_Displacement.GetDimensions(width, height);
+				float2 samplePos = frac(worldPos.xz / (unitLen));
 
 				//x = (nLx / N, mLz / M)
 
@@ -77,8 +82,9 @@ Shader "Unlit/WaterDisplacement"
 
 
                 worldPos.y += displacement.y * _Scale;
-                worldPos.xz += float2(displacement.x, displacement.z) * _DisplacementScale;
-                o.worldPos = worldPos;
+				o.worldPos = worldPos;
+                worldPos.xz -= float2(displacement.x, displacement.z) * _DisplacementScale;
+                //o.worldPos = worldPos;
 
                 v.vertex = mul(unity_WorldToObject, worldPos);
                 o.vertex = UnityObjectToClipPos(v.vertex);
@@ -118,6 +124,7 @@ Shader "Unlit/WaterDisplacement"
 				return clamp((Rparl * Rparl + Rparp * Rparp) / 2, 0, 1);
 			}
 
+
 			fixed4 frag (v2f i) : SV_Target
 			{
 				// sample the texture
@@ -126,49 +133,52 @@ Shader "Unlit/WaterDisplacement"
 				col.xyz = float3(i.uv, 0.0);
 				col.xyz = i.worldNormal;
 
+				float2 samplePos = frac(i.worldPos.xz / (unitLen));
+				float4 normalData = tex2D(_Normal, samplePos);
+				//i.worldNormal = normalData.xyz;
+				col.xyz = i.worldNormal / 2 + 0.5;
+
 
 				float3 light = _LightColor0.xyz;
 				float3 lightDir = _WorldSpaceLightPos0.xyz;
                 float3 worldPos = i.worldPos;
 				float3 viewDir = normalize(_WorldSpaceCameraPos - worldPos);
 				
+				//Fresnel
 				float cosTheta = dot(normalize(i.worldNormal.xyz), viewDir);
 				float reflective = Fresnel(1, 1.325, cosTheta);
+				reflective = smoothstep(0, 1, reflective);
 
-				//diffuse
-                float NLDot = saturate(dot(lightDir, i.worldNormal.xyz));
-                float intensity = saturate(.5 + NLDot);
-                float3 diffuse = saturate(intensity * light * _BaseColor);
+				//diffuse			
+				Unity_GlossyEnvironmentData glossyEnvData = UnityGlossyEnvironmentSetup(.9, i.worldNormal.xyz, i.worldNormal.xyz, 1.325);
+				glossyEnvData.reflUVW = i.worldNormal.xyz;
+				float3 diffuse = Unity_GlossyEnvironment(UNITY_PASS_TEXCUBE(unity_SpecCube0), float4(1, 1, 1, 1), glossyEnvData).xyz * light;
 
+				//Specular
 				float3 reflectDir = reflect(viewDir, i.worldNormal);
-				half4 skyData = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, reflectDir);
+				float3 dirLightSpecular = pow(saturate(dot(-reflectDir, _WorldSpaceLightPos0.xyz)), 1) * light;
+				glossyEnvData.reflUVW = -reflectDir;
+				glossyEnvData.reflUVW.y = abs(glossyEnvData.reflUVW.y);
+				half3 skyData = Unity_GlossyEnvironment(UNITY_PASS_TEXCUBE(unity_SpecCube0), float4(1, 1, 1, 1), glossyEnvData).xyz;				
 
+
+				//Subsurface Scattering
 				float scatterWidth = 0.5;
 				float3 scatterColor = float3(0.0, 0.5, 0.0);
-				float shininess = 40.0;
 
-				float wrap_diffuse = max(0, (NLDot + _SSS_Wrap) / (1 + _SSS_Wrap));
-
-				float scatter = smoothstep(0.0, scatterWidth, wrap_diffuse) *
-					smoothstep(scatterWidth * 2.0, scatterWidth,
-						wrap_diffuse);
+				float3 H = normalize(-i.worldNormal.xyz + _WorldSpaceLightPos0.xyz);
+				float ViewDotH = pow(saturate(dot(viewDir, -H)), 1) * 30 * _SSS_Wrap;
+				float3 waveColor = saturate(_SSS_Tint.xyz * ViewDotH * light);
+				scatterColor = waveColor;
 
 
-				scatterColor = scatter * _SSS_Tint.xyz;// *diffuse;
-				//scatter = wrap_diffuse;
-                //intensity = Phong(i.worldNormal.xyz, viewDir, lightDir);
-                //float3 specular = saturate(intensity * light);
-				//reflective = 0.0;
-				//diffuse = 0;
-				float3 specular = skyData.xyz * reflective;
-				//scatterColor = 0;
-                col.xyz = (diffuse + scatterColor) + specular;
-				//col.xyz = reflectDir;
-				//col.xyz = reflective;
-                //float l = length(_WorldSpaceCameraPos.xz - worldPos.xz) / 100.0;
-                //col.xyz = l;
-                //col.xyz = n_dir;
-                //col.xyz = float;
+
+				//Blend Color
+				float3 specular = (dirLightSpecular + skyData.xyz * length(light)) * reflective;
+                col.xyz = (diffuse + scatterColor) * ( 1 - reflective) + specular;
+
+				//col.xyz += length(i.worldNormal.xz);
+
 				return col;
 			}
 			ENDCG

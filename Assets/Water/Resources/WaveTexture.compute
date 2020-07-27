@@ -1,7 +1,7 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel WaveTexture
 #pragma kernel WaveNormalKernel
-
+#include "HLSLSupport.cginc"
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
 
@@ -13,7 +13,10 @@ RWTexture2D<float4> WaveHorizontal;
 RWTexture2D<float4> WaveDisplacement;
 RWTexture2D<float4> WaveNormal;
 
+CBUFFER_START(WaveBuffer)
 float unitLen; //Meters
+float4 targetPos;
+CBUFFER_END
 
 [numthreads(16,16,1)]
 void WaveTexture (uint3 id : SV_DispatchThreadID)
@@ -21,6 +24,13 @@ void WaveTexture (uint3 id : SV_DispatchThreadID)
     float h = WaveHeightField[id.xy].x;
     float4 horizontalData = WaveHorizontal[id.xy];
 	
+	//float distance = abs(length(float2(256, 256) - id.xy));
+	float distance = abs(length(targetPos.xy - id.xy));
+	const float len = 100;
+	const float height = 100;
+	const float addH = smoothstep(0, 1, saturate((len - distance) / len)) * height;
+	//h += addH;
+
     WaveDisplacement[id.xy] = float4(horizontalData.x, h, horizontalData.z, 1.0);
 }
 
@@ -48,8 +58,8 @@ void WaveNormalKernel(uint3 id : SV_DispatchThreadID)
 	uv = uv % (int)width;
 	float4 y2 = WaveDisplacement[uv];
 
-	float3 d_x = float3(-unitLen, (x1 - x2).y, 0);
-	float3 d_y = float3(0, (y1 - y2).y, -unitLen);
+	float3 d_x = float3(-2 * (unitLen/ width), (x1 - x2).y, 0);
+	float3 d_y = float3(0, (y1 - y2).y, -2 * (unitLen/ width));
 
 
 	float3 normal = normalize(cross(d_x, d_y));

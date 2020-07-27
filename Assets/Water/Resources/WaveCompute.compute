@@ -40,8 +40,7 @@ void Tick(uint3 id : SV_DispatchThreadID)
 
     float2 gp1 = gaussian_pair(uv + float2(0.2, 0.3), time);
 	float2 h0mk = gp1 * (sqrt(PhilipSpectrum(amplitude, -k, windDir, 9.8)) / sqrt(2));
-	
-	float wkt = sqrt(9.8 * length(k)) * time * 1;
+	float wkt = sqrt(9.8 * length(k)) * (time + nrand(time) * 0.01f) * 1; // Add small random factor make it more unpredictable
 
 	// exp(jwt) = cos(wt) + j * sin(wt)
 	float e_cos = cos(wkt);

@@ -109,6 +109,7 @@ public class Gerstner : MonoBehaviour {
         mesh.uv = uvList.ToArray();
         mesh.triangles = triList.ToArray();
         mesh.RecalculateNormals();
+        mesh.bounds = new Bounds(Vector3.zero, 3000f * Vector3.one);
         SeaMesh.sharedMesh = mesh;
     }
 
