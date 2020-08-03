@@ -8,6 +8,8 @@
 RWTexture2D<float4> WaveTexture;
 RWTexture2D<float4> WaveDisplacement;
 RWTexture2D<float4> WaveNormal;
+RWTexture2D<float4> WaveFoamJocobian;
+RWTexture2D<float4> WaveFoamJxy;
 
 CBUFFER_START(WaveBuffer)
 float time;
@@ -32,7 +34,9 @@ void Tick(uint3 id : SV_DispatchThreadID)
 	float2 uv = id.xy / float2(2, 2);
 
 
-    double2 k = ( (uv - .4999) * 2.0 * 3.1415926) / unitLen;
+    float2 k = ( (uv - .4999) * 2.0 * 3.1415926) / unitLen;
+    float len_k = length(k);
+    float inv_k = len_k == 0 ? 0 : 1 / len_k;
     float2 windDir = wind.xy;
 
 	float2 gp0 = gaussian_pair(uv + float2(0.6, 0.1), time);
@@ -62,9 +66,17 @@ void Tick(uint3 id : SV_DispatchThreadID)
     float2 n_x = complex_mul(float2(0, 1), complex_mul(float2(k.x, 0), h));
     float2 n_y = complex_mul(float2(0, 1), complex_mul(float2(k.y, 0), h));
     
+    float jx = -(k * k).x * h.x * inv_k;
+    float jy = -(k * k).y * h.x * inv_k;
+    float jxy = -(k.x * k.y) * h.x;
+    //float j = jx + jy + jx*jy -jxy * jxy;
+    //j *= 1000;
+
     float3 result;
 	result.xyz = float3(h.x, h.y, 0.0);
 	WaveTexture[id.xy] = float4(result.x, result.y, 1.0, 1.0);
     WaveDisplacement[id.xy] = float4(d_x.x, d_x.y, d_y.x, d_y.y);
     WaveNormal[id.xy] = float4(n_x.x, n_x.y, n_y.x, n_y.y);
+    WaveFoamJocobian[id.xy] = float4(jx, 0, jy, 0);
+    WaveFoamJxy[id.xy] = float4(jxy, 0, 0, 0);
 }

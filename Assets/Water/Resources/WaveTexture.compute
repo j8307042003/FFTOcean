@@ -1,6 +1,7 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel WaveTexture
 #pragma kernel WaveNormalKernel
+#pragma kernel WaveWhitecap
 #include "HLSLSupport.cginc"
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
@@ -12,10 +13,14 @@ RWTexture2D<float4> WaveHorizontal;
 
 RWTexture2D<float4> WaveDisplacement;
 RWTexture2D<float4> WaveNormal;
+RWTexture2D<float4> WaveFoamJocobian;
+RWTexture2D<float4> WaveFoamJxy;
+RWTexture2D<float4> WaveFoam;
 
 CBUFFER_START(WaveBuffer)
 float unitLen; //Meters
 float4 targetPos;
+float amplitude;
 CBUFFER_END
 
 [numthreads(16,16,1)]
@@ -29,11 +34,26 @@ void WaveTexture (uint3 id : SV_DispatchThreadID)
 	const float len = 100;
 	const float height = 100;
 	const float addH = smoothstep(0, 1, saturate((len - distance) / len)) * height;
-	//h += addH;
+    //h += addH;
 
     WaveDisplacement[id.xy] = float4(horizontalData.x, h, horizontalData.z, 1.0);
+
+    float4 j_x_y_Data = WaveFoamJocobian[id.xy];
+    float jx =  0.2 * j_x_y_Data.x;
+    float jy =  0.2 * j_x_y_Data.z;
+    float jxy = 0.2 * WaveFoamJxy[id.xy].x;
+    float j = 1 + jx + jy +jx * jy - jxy * jxy;
+    float jj =  j * j;
+
+    WaveFoam[id.xy] = float4(j, jj, j, 1.0);
 }
 
+
+[numthreads(16,16,1)]
+void WaveWhitecap(uint3 id : SV_DispatchThreadID)
+{
+
+}
 
 [numthreads(16,16,1)]
 void WaveNormalKernel(uint3 id : SV_DispatchThreadID)

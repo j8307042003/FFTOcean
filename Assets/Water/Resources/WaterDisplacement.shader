@@ -48,6 +48,7 @@ Shader "Unlit/WaterDisplacement"
             sampler2D _Height;
 			sampler2D _Displacement;
             sampler2D _Normal;
+            sampler2D _Foam;
 			float4 _MainTex_ST;
             float4 _BaseColor;
 			float4 _SSS_Tint;
@@ -55,6 +56,7 @@ Shader "Unlit/WaterDisplacement"
             float _DisplacementScale;
 			float unitLen;
 			float _SSS_Wrap;
+            float foamScale;
 			
 			v2f vert (appdata v)
 			{
@@ -124,6 +126,18 @@ Shader "Unlit/WaterDisplacement"
 				return clamp((Rparl * Rparl + Rparp * Rparp) / 2, 0, 1);
 			}
 
+#define M_PI 3.1415926
+float erf(float x) {
+    float a  = 0.140012;
+    float x2 = x*x;
+    float ax2 = a*x2;
+    return sign(x) * sqrt( 1.0 - exp(-x2*(4.0/M_PI + ax2)/(1.0 + ax2)) );
+}
+
+
+            float whitecapCoverage(float epsilon, float mu, float sigma2) {
+                return 0.5*erf((0.5*sqrt(2.0)*(epsilon-mu)*rsqrt(sigma2))) + 0.5;
+            }
 
 			fixed4 frag (v2f i) : SV_Target
 			{
@@ -138,6 +152,7 @@ Shader "Unlit/WaterDisplacement"
 				//i.worldNormal = normalData.xyz;
 				col.xyz = i.worldNormal / 2 + 0.5;
 
+                float4 foam = tex2D(_Foam, samplePos);
 
 				float3 light = _LightColor0.xyz;
 				float3 lightDir = _WorldSpaceLightPos0.xyz;
@@ -156,12 +171,12 @@ Shader "Unlit/WaterDisplacement"
 
 				//Specular
 				float3 reflectDir = reflect(viewDir, i.worldNormal);
-				float3 dirLightSpecular = pow(saturate(dot(-reflectDir, _WorldSpaceLightPos0.xyz)), 1) * light;
+				float3 dirLightSpecular = pow(saturate(dot(-reflectDir, _WorldSpaceLightPos0.xyz)), 10) * light;
 				glossyEnvData.reflUVW = -reflectDir;
 				glossyEnvData.reflUVW.y = abs(glossyEnvData.reflUVW.y);
 				half3 skyData = Unity_GlossyEnvironment(UNITY_PASS_TEXCUBE(unity_SpecCube0), float4(1, 1, 1, 1), glossyEnvData).xyz;				
 
-
+                //reflective = 1;
 				//Subsurface Scattering
 				float scatterWidth = 0.5;
 				float3 scatterColor = float3(0.0, 0.5, 0.0);
@@ -169,7 +184,8 @@ Shader "Unlit/WaterDisplacement"
 				float3 H = normalize(-i.worldNormal.xyz + _WorldSpaceLightPos0.xyz);
 				float ViewDotH = pow(saturate(dot(viewDir, -H)), 1) * 30 * _SSS_Wrap;
 				float3 waveColor = saturate(_SSS_Tint.xyz * ViewDotH * light);
-				scatterColor = waveColor;
+                scatterColor = waveColor;
+				//scatterColor = 0;
 
 
 
@@ -177,6 +193,13 @@ Shader "Unlit/WaterDisplacement"
 				float3 specular = (dirLightSpecular + skyData.xyz * length(light)) * reflective;
                 col.xyz = (diffuse + scatterColor) * ( 1 - reflective) + specular;
 
+                float jsigma2 = max(foam.y - foam.x * foam.x, 0.0);
+                //foam *= 0.00000003;
+                float w = whitecapCoverage(foamScale, foam.x, jsigma2);
+                w = abs(w);
+                col.xyz += w;
+                //if (foam.x > 0.1)
+                //    col.xyz += 1.0;
 				//col.xyz += length(i.worldNormal.xz);
 
 				return col;
