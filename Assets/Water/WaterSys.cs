@@ -13,6 +13,13 @@ public class WaterSysHelper
         return s;
     }
 
+    public static Shader LoadShader(string shaderName)
+    {
+        Shader s = Resources.Load<Shader>(shaderName);
+        Debug.Assert(s != null, "Load Water Shader Error! Shader Not Found! Name : " + shaderName);
+        return s;
+    }
+
     public static RenderTexture CreateRenderTexture(int width, int height, RenderTextureFormat format = RenderTextureFormat.ARGBFloat, FilterMode filterMode = FilterMode.Point)
     {
         RenderTexture rt = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBFloat);
@@ -44,6 +51,7 @@ public class WaterRenderData
     public RenderTexture[] foamJacobianDataArray;
     public RenderTexture[] waveFoamJxy;
     public RenderTexture[] waveFoam;
+    public RenderTexture[] waveFoamUpdate;
 
     public WaterRenderData()
     {
@@ -54,6 +62,7 @@ public class WaterRenderData
         foamJacobianDataArray = new RenderTexture[LodNum];
         waveFoamJxy = new RenderTexture[LodNum];
         waveFoam = new RenderTexture[LodNum];
+        waveFoamUpdate = new RenderTexture[LodNum];
         for (int i = 0; i < LodNum; ++i)
         {
             dataArray[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize);
@@ -63,6 +72,7 @@ public class WaterRenderData
             foamJacobianDataArray[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize);
             waveFoamJxy[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize);
             waveFoam[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize, filterMode:FilterMode.Bilinear);
+            waveFoamUpdate[i] = WaterSysHelper.CreateRenderTexture(TextureSize, TextureSize, filterMode:FilterMode.Trilinear);
         }
     }
 
@@ -86,6 +96,9 @@ public class WaterSysType
     public static string WaveFFT2DKernel { get { return "FFT2D"; } }
     public static string WaveFFT2D_HorizontalKernel { get { return "FFT2D_horizontal"; } }
 
+    public static string WaveFoamUpdateShaderName { get { return "FoamUpdate"; } }
+
+
 }
 
 
@@ -102,7 +115,10 @@ public class WaterSys : MonoBehaviour {
     [Range(0, 10)]
     public float timeScale = 1.0f;
     [Range(0, 1)]
-    public float foamScale = 1.0f; 
+    public float foamScale = 1.0f;
+
+    [Range(0, 10)]
+    public float foamExistTime = 1.0f;
 
 
     public RenderTexture displacement;
@@ -130,6 +146,9 @@ public class WaterSys : MonoBehaviour {
 
     [Range(0, 9)]
     public int it = 0;
+
+    Shader FoamUpdateShader;
+    Material foamBlitMat;
 
     private void Awake()
     {
@@ -168,6 +187,8 @@ public class WaterSys : MonoBehaviour {
 
         pingpongTex = WaterSysHelper.CreateRenderTexture(512, 512);
 
+        FoamUpdateShader = WaterSysHelper.LoadShader(WaterSysType.WaveFoamUpdateShaderName);
+        foamBlitMat = new Material(FoamUpdateShader);
 
         displacement = renderData.displacementMapDataArray[0];
     }
@@ -243,7 +264,6 @@ public class WaterSys : MonoBehaviour {
         FFT2D(renderData.foamJacobianDataArray[0]);
         FFT(renderData.waveFoamJxy[0]);
 
-
         _commandBuffer.SetComputeTextureParam(waveTexture, waveTextureKernel, Shader.PropertyToID("WaveHeightField"), renderData.GetRenderTexArray()[0]);
         _commandBuffer.SetComputeTextureParam(waveTexture, waveTextureKernel, Shader.PropertyToID("WaveHorizontal"), renderData.displacementDataArray[0]);
         _commandBuffer.SetComputeTextureParam(waveTexture, waveTextureKernel, Shader.PropertyToID("WaveDisplacement"), renderData.displacementMapDataArray[0]);
@@ -259,6 +279,15 @@ public class WaterSys : MonoBehaviour {
         _commandBuffer.SetComputeVectorParam(waveTexture, Shader.PropertyToID("targetPos"), new Vector4(Mathf.Sin(Time.time), Mathf.Cos(Time.time), 0, 0) * (100) + new Vector4(256, 256));
         _commandBuffer.SetComputeFloatParam(waveTexture, Shader.PropertyToID("amplitude"), amplitude);
         _commandBuffer.DispatchCompute(waveTexture, waveNormalKernel, renderData.displacementMapDataArray[0].width / 16, renderData.displacementMapDataArray[0].height / 16, 1);
+
+        foamBlitMat.SetFloat(Shader.PropertyToID("foamExistTime"), foamExistTime);
+        foamBlitMat.SetFloat(Shader.PropertyToID("deltaTime"), Time.deltaTime);
+        foamBlitMat.SetFloat(Shader.PropertyToID("foamScale"), foamScale);
+        foamBlitMat.SetTexture(Shader.PropertyToID("_FoamData"), renderData.waveFoam[0]);
+        foamBlitMat.SetTexture(Shader.PropertyToID("_Foam"), renderData.waveFoamUpdate[0]);
+        _commandBuffer.Blit(renderData.waveFoam[0], pingpongTex, foamBlitMat);
+        _commandBuffer.Blit(pingpongTex, renderData.waveFoamUpdate[0]);
+
 
         UnityEngine.Profiling.Profiler.BeginSample("My Command Buffer");
         Graphics.ExecuteCommandBuffer(_commandBuffer);
@@ -294,7 +323,8 @@ public class WaterSys : MonoBehaviour {
         //waterSurface.SetTexture("_Displacement", renderData.displacementDataArray[0]);
         waterSurface.SetTexture("_Displacement", renderData.displacementMapDataArray[0]);
         waterSurface.SetTexture("_Normal", renderData.normalDataArray[0]);
-        waterSurface.SetTexture("_Foam", renderData.waveFoam[0]);
+        waterSurface.SetTexture("_Foam", renderData.waveFoamUpdate[0]);
+        //waterSurface.SetTexture("_Foam", renderData.waveFoam[0]);
         waterSurface.SetFloat("unitLen", renderData.unitLength);
         waterSurface.SetFloat("foamScale", foamScale);
 
@@ -354,7 +384,7 @@ public class WaterSys : MonoBehaviour {
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.GetRenderTexArray()[0]);
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementDataArray[0], ScaleMode.StretchToFill, false);
         //if(bShowNormal)GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.normalDataArray[0], ScaleMode.StretchToFill, false);
-        if(bShowNormal)GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.waveFoam[0], ScaleMode.StretchToFill, false);
+        if(bShowNormal)GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.waveFoamUpdate[0], ScaleMode.StretchToFill, false);
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementMapDataArray[0], ScaleMode.StretchToFill, false);
 
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), butterFlyTex, ScaleMode.StretchToFill, false);

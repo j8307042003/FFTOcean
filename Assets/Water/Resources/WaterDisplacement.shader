@@ -111,6 +111,18 @@ Shader "Unlit/WaterDisplacement"
                 return intensity;
             }
 
+			#define M_PI 3.1415926
+			float erf(float x) {
+				float a = 0.140012;
+				float x2 = x * x;
+				float ax2 = a * x2;
+				return sign(x) * sqrt(1.0 - exp(-x2 * (4.0 / M_PI + ax2) / (1.0 + ax2)));
+			}
+
+
+			float whitecapCoverage(float epsilon, float mu, float sigma2) {
+				return 0.5*erf((0.5*sqrt(2.0)*(epsilon - mu)*rsqrt(sigma2))) + 0.5;
+			}
 
 			float Fresnel(float etaI, float etaT, float cosThetaI) {
 				float sinThetaI = sqrt(max(0, 1 - cosThetaI * cosThetaI));
@@ -126,18 +138,7 @@ Shader "Unlit/WaterDisplacement"
 				return clamp((Rparl * Rparl + Rparp * Rparp) / 2, 0, 1);
 			}
 
-#define M_PI 3.1415926
-float erf(float x) {
-    float a  = 0.140012;
-    float x2 = x*x;
-    float ax2 = a*x2;
-    return sign(x) * sqrt( 1.0 - exp(-x2*(4.0/M_PI + ax2)/(1.0 + ax2)) );
-}
 
-
-            float whitecapCoverage(float epsilon, float mu, float sigma2) {
-                return 0.5*erf((0.5*sqrt(2.0)*(epsilon-mu)*rsqrt(sigma2))) + 0.5;
-            }
 
 			fixed4 frag (v2f i) : SV_Target
 			{
@@ -192,14 +193,20 @@ float erf(float x) {
 				//Blend Color
 				float3 specular = (dirLightSpecular + skyData.xyz * length(light)) * reflective;
                 col.xyz = (diffuse + scatterColor) * ( 1 - reflective) + specular;
-
+				//col.xyz += dirLightSpecular * 0.7;
+				/*
                 float jsigma2 = max(foam.y - foam.x * foam.x, 0.0);
                 //foam *= 0.00000003;
                 float w = whitecapCoverage(foamScale, foam.x, jsigma2);
                 w = abs(w);
+				w = isnan(w) ? 0.0 : w;
+
+				//w = jsigma2 * 1.0;
                 col.xyz += w;
-                //if (foam.x > 0.1)
-                //    col.xyz += 1.0;
+				*/
+				float w = foam.x * 0.6;
+				//col.xyz += w;
+
 				//col.xyz += length(i.worldNormal.xz);
 
 				return col;

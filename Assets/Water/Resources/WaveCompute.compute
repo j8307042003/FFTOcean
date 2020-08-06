@@ -31,19 +31,23 @@ void Tick(uint3 id : SV_DispatchThreadID)
 	float width, height;
 	WaveTexture.GetDimensions(width, height);
 	//float2 uv = id.xy / float2(width, height);
-	float2 uv = id.xy / float2(2, 2);
+	float2 uv = id.xy - id.xy / 2.0 + 0.0001; // float2(2, 2);
 
 
-    float2 k = ( (uv - .4999) * 2.0 * 3.1415926) / unitLen;
+	double2 k = ((uv) * 2.0 * 3.1415926) / unitLen;
+	//double2 k = (uv - .4999) * unitLen;
     float len_k = length(k);
     float inv_k = len_k == 0 ? 0 : 1 / len_k;
     float2 windDir = wind.xy;
 
 	float2 gp0 = gaussian_pair(uv + float2(0.6, 0.1), time);
-	float2 h0k = gp0 * (sqrt(PhilipSpectrum(amplitude, k, windDir, 9.8)) /  sqrt(2));
+	float2 h0k = gp0 * (sqrt(PhilipSpectrum(amplitude, k, windDir, 9.8)) / sqrt(2));
+	//float2 h0k = gp0 * (sqrt(JONSWAPSpectrum(amplitude, k, windDir, 9.8)) /  sqrt(2));
+	
 
     float2 gp1 = gaussian_pair(uv + float2(0.2, 0.3), time);
 	float2 h0mk = gp1 * (sqrt(PhilipSpectrum(amplitude, -k, windDir, 9.8)) / sqrt(2));
+	//float2 h0mk = gp1 * (sqrt(JONSWAPSpectrum(amplitude, -k, windDir, 9.8)) / sqrt(2));
 	float wkt = sqrt(9.8 * length(k)) * (time + nrand(time) * 0.01f) * 1; // Add small random factor make it more unpredictable
 
 	// exp(jwt) = cos(wt) + j * sin(wt)

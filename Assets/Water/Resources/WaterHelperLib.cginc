@@ -85,6 +85,26 @@ float PhilipSpectrum(float amplitude, float2 wavevector, float2 wind, float grav
 }
 
 
+float JONSWAPSpectrum(float amplitude, double2 wavevector, float2 wind, float gravity)
+{	
+	const float waveLength = length(wavevector);
+	const float fetch = 500000;
+	float U10 = length(wind);
+	float alpha = 0.076 * pow(U10 * U10 / (fetch * gravity), 0.22);
+	//float Omega = 2 * 3.1415926 / waveLength;
+	float Omega = 1 / waveLength;
+	float wp = 22 * pow(gravity * gravity / (U10 * fetch), 1.0 / 3.0);
+	float r = 3.3;
+	float t = Omega <= wp ? 0.07 : 0.09;
+
+	float PSpectrum = alpha * (gravity * gravity) / (pow(Omega, 5)) * exp(-(5.0 / 4.0) * pow(wp / Omega, 4));
+	float R = pow(3.3, 
+					exp( -pow(Omega - wp, 2) / (2 * t * t * wp * wp))
+				 );
+	return amplitude * PSpectrum * r;
+}
+
+
 float2 complex_mul(float2 c1, float2 c2) 
 {
 	return float2(c1.x * c2.x - c1.y * c2.y, c1.x * c2.y + c1.y * c2.x);
