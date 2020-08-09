@@ -40,6 +40,7 @@ void WaveTexture (uint3 id : SV_DispatchThreadID)
 	const float height = 100;
 	const float addH = smoothstep(0, 1, saturate((len - distance) / len)) * height;
 	//h -= addH;
+    
 
     WaveDisplacement[id.xy] = float4(horizontalData.x, h, horizontalData.z, 1.0);
 

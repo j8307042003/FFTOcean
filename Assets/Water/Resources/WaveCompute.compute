@@ -24,6 +24,15 @@ CBUFFER_END
 
 
 
+bool IsNan(float x)
+{
+    // For some reason the following tests outputs "internal compiler error" randomly on desktop
+    // so we'll use a safer but slightly slower version instead :/
+    //return (x <= 0.0 || 0.0 <= x) ? false : true;
+    return (x < 0.0 || x > 0.0 || x == 0.0) ? false : true;
+}
+
+
 
 [numthreads(8,8,1)]
 void Tick(uint3 id : SV_DispatchThreadID)
@@ -31,24 +40,34 @@ void Tick(uint3 id : SV_DispatchThreadID)
 	float width, height;
 	WaveTexture.GetDimensions(width, height);
 	//float2 uv = id.xy / float2(width, height);
-	float2 uv = id.xy - id.xy / 2.0 + 0.0001; // float2(2, 2);
 
+    //float2 uv = id.xy - id.xy / 2.0 + 0.0001; // float2(2, 2);
+	float2 uv = id.xy/width; // float2(2, 2);
+    int2 t = (id.xy) - (int)width / 2;
+    //t = id.xy;
 
-	double2 k = ((uv) * 2.0 * 3.1415926) / unitLen;
+    //float2 k = ((uv) * 2.0 * 3.1415926) / unitLen;
+	float2 k = ((t) * 2.0 * 3.1415926) / unitLen;
 	//double2 k = (uv - .4999) * unitLen;
     float len_k = length(k);
     float inv_k = len_k == 0 ? 0 : 1 / len_k;
     float2 windDir = wind.xy;
 
 	float2 gp0 = gaussian_pair(uv + float2(0.6, 0.1), time);
-	float2 h0k = gp0 * (sqrt(PhilipSpectrum(amplitude, k, windDir, 9.8)) / sqrt(2));
+    float ps = PhilipSpectrum(amplitude, k, windDir, 9.8);
+    ps = IsNan(ps) ? 0.0 : ps;
+	float2 h0k = gp0 * (sqrt(ps) / sqrt(2));
 	//float2 h0k = gp0 * (sqrt(JONSWAPSpectrum(amplitude, k, windDir, 9.8)) /  sqrt(2));
 	
 
     float2 gp1 = gaussian_pair(uv + float2(0.2, 0.3), time);
-	float2 h0mk = gp1 * (sqrt(PhilipSpectrum(amplitude, -k, windDir, 9.8)) / sqrt(2));
+    float ps2 = PhilipSpectrum(amplitude, -k, windDir, 9.8);
+    ps2 = IsNan(ps2) ? 0.0 : ps2;
+	float2 h0mk = gp1 * (sqrt(ps2) / sqrt(2));
 	//float2 h0mk = gp1 * (sqrt(JONSWAPSpectrum(amplitude, -k, windDir, 9.8)) / sqrt(2));
-	float wkt = sqrt(9.8 * length(k)) * (time + nrand(time) * 0.01f) * 1; // Add small random factor make it more unpredictable
+    float2 x = t * unitLen / width;
+	float wkt = sqrt(9.8 * dot(k, x)) * (time + nrand(time) * 0.01f) * 1; // Add small random factor make it more unpredictable
+    wkt = IsNan(wkt) ? 0 : wkt;
 
 	// exp(jwt) = cos(wt) + j * sin(wt)
 	float e_cos = cos(wkt);
@@ -62,10 +81,17 @@ void Tick(uint3 id : SV_DispatchThreadID)
 	float2 h0k_exp_inv = complex_mul(exp1, h0mk);
 
     float2 h = h0k_exp + h0k_exp_inv;
+    h.x = IsNan(h.x) ? 0 : h.x;
+    h.y = IsNan(h.y) ? 0 : h.y;
+
+    //h.x = abs(h.x) > 1.0 ? h.x : 0;
     
+
     //xz : -i * (K / |k|) * h(K, t)
-    float2 d_x = complex_mul(float2(0, -1), complex_mul(float2(k.x / length(k), 0), h));
-    float2 d_y = complex_mul(float2(0, -1), complex_mul(float2(k.y / length(k), 0), h));
+    float2 kDivkLen = k * inv_k;
+
+    float2 d_x = complex_mul(float2(0, -1), complex_mul(float2(isnan(kDivkLen.x) ? 0 : kDivkLen.x, 0), h));
+    float2 d_y = complex_mul(float2(0, -1), complex_mul(float2(isnan(kDivkLen.y) ? 0 : kDivkLen.y, 0), h));
 
     float2 n_x = complex_mul(float2(0, 1), complex_mul(float2(k.x, 0), h));
     float2 n_y = complex_mul(float2(0, 1), complex_mul(float2(k.y, 0), h));
@@ -78,7 +104,7 @@ void Tick(uint3 id : SV_DispatchThreadID)
 
     float3 result;
 	result.xyz = float3(h.x, h.y, 0.0);
-	WaveTexture[id.xy] = float4(result.x, result.y, 1.0, 1.0);
+	WaveTexture[id.xy] = float4(result.x, result.y, 0.0, 1.0);
     WaveDisplacement[id.xy] = float4(d_x.x, d_x.y, d_y.x, d_y.y);
     WaveNormal[id.xy] = float4(n_x.x, n_x.y, n_y.x, n_y.y);
     WaveFoamJocobian[id.xy] = float4(jx, 0, jy, 0);

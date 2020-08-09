@@ -85,7 +85,7 @@ float PhilipSpectrum(float amplitude, float2 wavevector, float2 wind, float grav
 }
 
 
-float JONSWAPSpectrum(float amplitude, double2 wavevector, float2 wind, float gravity)
+float JONSWAPSpectrum(float amplitude, float2 wavevector, float2 wind, float gravity)
 {	
 	const float waveLength = length(wavevector);
 	const float fetch = 500000;

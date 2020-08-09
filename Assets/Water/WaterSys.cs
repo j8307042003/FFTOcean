@@ -263,7 +263,7 @@ public class WaterSys : MonoBehaviour {
         FFT2D(renderData.normalDataArray[0]);
         FFT2D(renderData.foamJacobianDataArray[0]);
         FFT(renderData.waveFoamJxy[0]);
-
+        
         _commandBuffer.SetComputeTextureParam(waveTexture, waveTextureKernel, Shader.PropertyToID("WaveHeightField"), renderData.GetRenderTexArray()[0]);
         _commandBuffer.SetComputeTextureParam(waveTexture, waveTextureKernel, Shader.PropertyToID("WaveHorizontal"), renderData.displacementDataArray[0]);
         _commandBuffer.SetComputeTextureParam(waveTexture, waveTextureKernel, Shader.PropertyToID("WaveDisplacement"), renderData.displacementMapDataArray[0]);
@@ -288,7 +288,7 @@ public class WaterSys : MonoBehaviour {
         _commandBuffer.Blit(renderData.waveFoam[0], pingpongTex, foamBlitMat);
         _commandBuffer.Blit(pingpongTex, renderData.waveFoamUpdate[0]);
 
-
+        
         UnityEngine.Profiling.Profiler.BeginSample("My Command Buffer");
         Graphics.ExecuteCommandBuffer(_commandBuffer);
         UnityEngine.Profiling.Profiler.EndSample();
@@ -333,7 +333,7 @@ public class WaterSys : MonoBehaviour {
 
     void FFT(RenderTexture renderTex)
     {
-        for (int i = Mathf.Min(0, it - 1); i < it; i++)
+        for (int i = 0; i < it; i++)
         {
             _commandBuffer.SetComputeIntParam(FFTCompute, Shader.PropertyToID("stage"), i);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFTKernel, Shader.PropertyToID("Result"), pingpongTex);
@@ -343,7 +343,7 @@ public class WaterSys : MonoBehaviour {
             _commandBuffer.Blit(pingpongTex, renderTex);
         }
 
-        for (int i = Mathf.Min(0, it - 1); i < it; i++)
+        for (int i = 0; i < it; i++)
         {
             _commandBuffer.SetComputeIntParam(FFTCompute, Shader.PropertyToID("stage"), i);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFTHorizontalKernel, Shader.PropertyToID("Result"), pingpongTex);
@@ -356,7 +356,7 @@ public class WaterSys : MonoBehaviour {
 
     void FFT2D(RenderTexture renderTex)
     {
-        for (int i = Mathf.Min(0, it - 1); i < it; i++)
+        for (int i = 0; i < it; i++)
         {
             _commandBuffer.SetComputeIntParam(FFTCompute, Shader.PropertyToID("stage"), i);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFT2DKernel, Shader.PropertyToID("Result"), pingpongTex);
@@ -366,7 +366,7 @@ public class WaterSys : MonoBehaviour {
             _commandBuffer.Blit(pingpongTex, renderTex);
         }
 
-        for (int i = Mathf.Min(0, it - 1); i < it; i++)
+        for (int i = 0; i < it; i++)
         {
             _commandBuffer.SetComputeIntParam(FFTCompute, Shader.PropertyToID("stage"), i);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFT2DHorizontalKernel, Shader.PropertyToID("Result"), pingpongTex);
@@ -380,7 +380,8 @@ public class WaterSys : MonoBehaviour {
     
     private void OnGUI()
     {
-        if (bShowDisplacement) GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementMapDataArray[0], ScaleMode.StretchToFill, false);
+        //if (bShowDisplacement) GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementMapDataArray[0], ScaleMode.StretchToFill, false);
+        if (bShowDisplacement) GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.GetRenderTexArray()[0], ScaleMode.StretchToFill, false);
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.GetRenderTexArray()[0]);
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementDataArray[0], ScaleMode.StretchToFill, false);
         //if(bShowNormal)GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.normalDataArray[0], ScaleMode.StretchToFill, false);
