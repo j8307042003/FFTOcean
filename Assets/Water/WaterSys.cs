@@ -167,7 +167,7 @@ public class WaterSys : MonoBehaviour {
 
         renderData = new WaterRenderData();
         renderData.unitLength = 1000.0f;
-        butterFlyTex = WaterSysHelper.CreateRenderTexture((int)Mathf.Log(renderData.dataArray[0].width, 2), renderData.dataArray[0].width, RenderTextureFormat.ARGBInt);
+        butterFlyTex = WaterSysHelper.CreateRenderTexture((int)Mathf.Log(renderData.dataArray[0].width, 2), renderData.dataArray[0].width, RenderTextureFormat.ARGBFloat);
         waveCompute = WaterSysHelper.LoadComputeShader(WaterSysType.WaveComputeShaderName);
         waveKernel = waveCompute.FindKernel(WaterSysType.WaveComputeKernel);
         waveTexture = WaterSysHelper.LoadComputeShader(WaterSysType.WaveTextureComputerShaderName);
@@ -294,12 +294,13 @@ public class WaterSys : MonoBehaviour {
         UnityEngine.Profiling.Profiler.EndSample();
 
 
-
+        _commandBuffer.Dispose();
         /*
         //RenderTexture.active = butterFlyTex;
         //tmp.ReadPixels(new Rect(0, 0, 9, 512), 0, 0);
-        
-        RenderTexture.active = renderData.GetRenderTexArray()[0];
+
+        //RenderTexture.active = renderData.GetRenderTexArray()[0];
+        RenderTexture.active = renderData.displacementMapDataArray[0];
         tmp.ReadPixels(new Rect(0, 0, 512, 512), 0, 0);
         RenderTexture.active = null;
 
@@ -311,10 +312,13 @@ public class WaterSys : MonoBehaviour {
         for(int i = 0; i < 512; i++)
         {
             c0[i] = tmp.GetPixel(1, i);
+            var data = tmp.GetRawTextureData();
             reverseIdx[i] = reverse(i, 9);
             if (float.IsNaN(c0[i].r))
                 Debug.LogError("Nan at y " + i);
-            sb.AppendLine(c0[i].r + "  " + c0[i].g);
+
+            if (c0[i].g > 10.0)
+                sb.AppendLine(c0[i].r + "  " + c0[i].g);
         }
 
         Debug.Log(sb.ToString());
@@ -339,10 +343,18 @@ public class WaterSys : MonoBehaviour {
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFTKernel, Shader.PropertyToID("Result"), pingpongTex);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFTKernel, Shader.PropertyToID("pingpong"), renderTex);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFTKernel, Shader.PropertyToID("ButterflyTex"), butterFlyTex);
+            _commandBuffer.BeginSample("FFT Compute");
             _commandBuffer.DispatchCompute(FFTCompute, FFTKernel, renderTex.width / 16, renderTex.height / 16, 1);
-            _commandBuffer.Blit(pingpongTex, renderTex);
-        }
+            var fence = _commandBuffer.CreateGraphicsFence(GraphicsFenceType.AsyncQueueSynchronisation, SynchronisationStageFlags.ComputeProcessing);
+            _commandBuffer.WaitOnAsyncGraphicsFence(fence);
+            _commandBuffer.EndSample("FFT Compute");
 
+            _commandBuffer.BeginSample("FFT Blit");
+            _commandBuffer.Blit(pingpongTex, renderTex);
+            _commandBuffer.EndSample("FFT Blit");
+
+        }
+        //return;
         for (int i = 0; i < it; i++)
         {
             _commandBuffer.SetComputeIntParam(FFTCompute, Shader.PropertyToID("stage"), i);
@@ -350,13 +362,15 @@ public class WaterSys : MonoBehaviour {
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFTHorizontalKernel, Shader.PropertyToID("pingpong"), renderTex);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFTHorizontalKernel, Shader.PropertyToID("ButterflyTex"), butterFlyTex);
             _commandBuffer.DispatchCompute(FFTCompute, FFTHorizontalKernel, renderTex.width / 16, renderTex.height / 16, 1);
+            var fence = _commandBuffer.CreateGraphicsFence(GraphicsFenceType.AsyncQueueSynchronisation, SynchronisationStageFlags.ComputeProcessing);
+            _commandBuffer.WaitOnAsyncGraphicsFence(fence);
             _commandBuffer.Blit(pingpongTex, renderTex);
         }
     }
 
     void FFT2D(RenderTexture renderTex)
-    {
-        for (int i = 0; i < it; i++)
+    { 
+        for (int i = 0; i < 0; i++)
         {
             _commandBuffer.SetComputeIntParam(FFTCompute, Shader.PropertyToID("stage"), i);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFT2DKernel, Shader.PropertyToID("Result"), pingpongTex);
@@ -365,7 +379,7 @@ public class WaterSys : MonoBehaviour {
             _commandBuffer.DispatchCompute(FFTCompute, FFT2DKernel, renderTex.width / 16, renderTex.height / 16, 1);
             _commandBuffer.Blit(pingpongTex, renderTex);
         }
-
+        //return;
         for (int i = 0; i < it; i++)
         {
             _commandBuffer.SetComputeIntParam(FFTCompute, Shader.PropertyToID("stage"), i);

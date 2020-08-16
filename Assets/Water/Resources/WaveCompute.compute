@@ -43,11 +43,13 @@ void Tick(uint3 id : SV_DispatchThreadID)
 
     //float2 uv = id.xy - id.xy / 2.0 + 0.0001; // float2(2, 2);
 	float2 uv = id.xy/width; // float2(2, 2);
-    int2 t = (id.xy) - (int)width / 2;
+    int2 t = ((int2)id.xy) - (int)width / 2;
     //t = id.xy;
 
     //float2 k = ((uv) * 2.0 * 3.1415926) / unitLen;
 	float2 k = ((t) * 2.0 * 3.1415926) / unitLen;
+
+
 	//double2 k = (uv - .4999) * unitLen;
     float len_k = length(k);
     float inv_k = len_k == 0 ? 0 : 1 / len_k;
@@ -65,8 +67,7 @@ void Tick(uint3 id : SV_DispatchThreadID)
     ps2 = IsNan(ps2) ? 0.0 : ps2;
 	float2 h0mk = gp1 * (sqrt(ps2) / sqrt(2));
 	//float2 h0mk = gp1 * (sqrt(JONSWAPSpectrum(amplitude, -k, windDir, 9.8)) / sqrt(2));
-    float2 x = t * unitLen / width;
-	float wkt = sqrt(9.8 * dot(k, x)) * (time + nrand(time) * 0.01f) * 1; // Add small random factor make it more unpredictable
+    float wkt = sqrt(9.8 * length(k)) * (time + nrand(time) * 0.01f) * 1; // Add small random factor make it more unpredictable
     wkt = IsNan(wkt) ? 0 : wkt;
 
 	// exp(jwt) = cos(wt) + j * sin(wt)

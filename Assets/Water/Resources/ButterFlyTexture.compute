@@ -8,8 +8,12 @@ RWTexture2D<float4> Result;
 int reverse(int i, int log_2_N) {
     int res = 0;
     for (int j = 0; j < log_2_N; j++) {
+        /*
         res = (res << 1) + (i & 1);
         i >>= 1;
+        */
+        res += (i&1) << ((log_2_N-1) - j);
+        i = i >> 1;
     }
     return res;
 }
@@ -20,17 +24,20 @@ void Tick (uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
 
-    const int N = 512;
+    //const int N = 512;
     const float M_PI = 3.1415926;    
-
-
-    float k = fmod(id.y * (float(N) / pow(2,id.x+1)), N);
+    const int maxN = 512;
+    int N = 1 << (id.x+1);
+    //float k = fmod(id.y * (float(N) / pow(2,id.x+1)), N);
+    float k = (id.y) % N;
+    //k += N >> 1;
     float2 twiddle = float2( cos((2.0*M_PI*k)/float(N)), sin((2.0*M_PI*k)/float(N)));
     //twiddle.x = k;
     int butterflyspan = int(pow(2, id.x));
 
     int butterflywing = fmod(id.y, pow(2, id.x+1)) < pow(2, id.x) ? 1 : 0;
     
+    if (butterflywing <= 0) twiddle = -twiddle;
     if (id.x == 0 ){
         /*
         int rv = 0;
@@ -40,23 +47,27 @@ void Tick (uint3 id : SV_DispatchThreadID)
             rv = rv << log2N;
         }
         */
-        int log2N = log2(N);
-        int revIdx_0 = id.y + (butterflywing > 0  ? 0 : -1);
-        int revIdx_1 = id.y + (butterflywing > 0  ? 1 :  0);
+        int log2N = log2(maxN);
+        //int revIdx_0 = id.y + (butterflywing > 0  ? 0 : -1);
+        //int revIdx_1 = id.y + (butterflywing > 0  ? 1 :  0);
+
+        uint revIdx_0 = id.y;
+        uint revIdx_1 = id.y + (butterflywing > 0  ? 1 :  -1);
 
         //int rv0 = reversebits(revIdx_0) << log2N; 
         //int rv1 = reversebits(revIdx_1) << log2N; 
    
-        int rv0 = reverse(revIdx_0, log2N); 
-        int rv1 = reverse(revIdx_1, log2N); 
+        uint rv0 = reverse(revIdx_0, log2N); 
+        uint rv1 = reverse(revIdx_1, log2N); 
         
-        
+        //rv0 = id.y;
         Result[id.xy] = float4(twiddle.x, twiddle.y, rv0, rv1);
         //Result[id.xy] = float4(twiddle.x, twiddle.y, revIdx_0, revIdx_1);
         //Result[id.xy] = float4(0, 1, 1, 1);
     }
     else{
-        Result[id.xy] = float4(twiddle.x, twiddle.y, id.y + (butterflywing > 0 ? 0 : -butterflyspan), id.y + (butterflywing > 0 ? butterflyspan : 0));
+        //Result[id.xy] = float4(twiddle.x, twiddle.y, id.y + (butterflywing > 0 ? 0 : -butterflyspan), id.y + (butterflywing > 0 ? butterflyspan : 0));
+        Result[id.xy] = float4(twiddle.x, twiddle.y, id.y, id.y + (butterflywing > 0 ? butterflyspan : -butterflyspan));
     }
     
 }

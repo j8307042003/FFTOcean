@@ -24,12 +24,16 @@ CBUFFER_END
 [numthreads(16,16,1)]
 void FFT (uint3 id : SV_DispatchThreadID)
 {
-    float4 butterfly = ButterflyTex[float2(stage, id.x)];
-    float2 a = pingpong[float2(butterfly.z, id.y)].xy;
-    float2 b = pingpong[float2(butterfly.w, id.y)].xy;
+    float4 butterfly = ButterflyTex[uint2(stage, id.x)];
+    //butterfly.z = min(511, max(0, butterfly.z));
+    float2 a = pingpong[int2(butterfly.z, id.y)].xy;
+    float2 b = pingpong[uint2(butterfly.w, id.y)].xy;
 
+    //a.xy = max(-1, min(1, a.xy));
+    //a.xy = max(-1, min(1, a.xy));
+    b = 0;
     float2 h = a + complex_mul(butterfly.xy, b);
-
+    h = a;
 
     Result[id.xy] = float4(h, 0.0, 1.0);
 }
@@ -37,12 +41,17 @@ void FFT (uint3 id : SV_DispatchThreadID)
 [numthreads(16,16,1)]
 void FFT_horizontal (uint3 id : SV_DispatchThreadID)
 {
-    float4 butterfly = ButterflyTex[float2(stage, id.y)];
-    float2 a = pingpong[float2(id.x, butterfly.z)].xy;
-    float2 b = pingpong[float2(id.x, butterfly.w)].xy;
+    float4 butterfly = ButterflyTex[uint2(stage, id.y)];
+    butterfly.z = min(511, max(0, butterfly.z));
+    butterfly.z = id.y;
+    float2 a = pingpong[int2(id.x, butterfly.z)].xy;
+    float2 b = pingpong[uint2(id.x, butterfly.w)].xy;
 
+    //a.xy = max(-1, min(1, a.xy));
+    //a.xy = max(-1, min(1, a.xy));
+    b = 0;
     float2 h = a + complex_mul(butterfly.xy, b);
-
+    h = a;
 
     Result[id.xy] = float4(h, 0, 1.0);
     //Result[id.xy] = pingpong[id.xy];
