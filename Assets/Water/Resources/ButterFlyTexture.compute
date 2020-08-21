@@ -67,7 +67,8 @@ void Tick (uint3 id : SV_DispatchThreadID)
     }
     else{
         //Result[id.xy] = float4(twiddle.x, twiddle.y, id.y + (butterflywing > 0 ? 0 : -butterflyspan), id.y + (butterflywing > 0 ? butterflyspan : 0));
-        Result[id.xy] = float4(twiddle.x, twiddle.y, id.y, id.y + (butterflywing > 0 ? butterflyspan : -butterflyspan));
+		//Result[id.xy] = float4(twiddle.x, twiddle.y, id.y, id.y + (butterflywing > 0 ? butterflyspan : -butterflyspan));
+		Result[id.xy] = float4(twiddle.x, twiddle.y, id.y, id.y);
     }
     
 }

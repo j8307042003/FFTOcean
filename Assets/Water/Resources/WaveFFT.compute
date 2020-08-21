@@ -9,8 +9,8 @@
 #include "WaterHelperLib.cginc"
 #include "HLSLSupport.cginc"
 
-Texture2D<float4> ButterflyTex;
-Texture2D<float4> pingpong;
+RWTexture2D<float4> ButterflyTex;
+RWTexture2D<float4> pingpong;
 
 RWTexture2D<float4> Result;
 
@@ -28,12 +28,13 @@ void FFT (uint3 id : SV_DispatchThreadID)
     //butterfly.z = min(511, max(0, butterfly.z));
     float2 a = pingpong[int2(butterfly.z, id.y)].xy;
     float2 b = pingpong[uint2(butterfly.w, id.y)].xy;
+	//a = clamp(a, -10, 10);
 
     //a.xy = max(-1, min(1, a.xy));
     //a.xy = max(-1, min(1, a.xy));
-    b = 0;
+    //b = 0;
     float2 h = a + complex_mul(butterfly.xy, b);
-    h = a;
+    //h = a;
 
     Result[id.xy] = float4(h, 0.0, 1.0);
 }
@@ -43,15 +44,19 @@ void FFT_horizontal (uint3 id : SV_DispatchThreadID)
 {
     float4 butterfly = ButterflyTex[uint2(stage, id.y)];
     butterfly.z = min(511, max(0, butterfly.z));
-    butterfly.z = id.y;
-    float2 a = pingpong[int2(id.x, butterfly.z)].xy;
+    //butterfly.z = id.y;
+	//butterfly.z = floor(clamp(butterfly.z, 10, 255));
+	int i = floor(butterfly.z);
+	//i = 255;
+	//int i = butterfly.z;
+    float2 a = pingpong[int2(id.x, i)].xy;
     float2 b = pingpong[uint2(id.x, butterfly.w)].xy;
 
     //a.xy = max(-1, min(1, a.xy));
     //a.xy = max(-1, min(1, a.xy));
-    b = 0;
+    //b = 0;
     float2 h = a + complex_mul(butterfly.xy, b);
-    h = a;
+    //h = a;
 
     Result[id.xy] = float4(h, 0, 1.0);
     //Result[id.xy] = pingpong[id.xy];

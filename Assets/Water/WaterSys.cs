@@ -256,8 +256,9 @@ public class WaterSys : MonoBehaviour {
 
         _commandBuffer.SetComputeTextureParam(butterFlyCS, butterflyKernel, Shader.PropertyToID("Result"), butterFlyTex);
         _commandBuffer.DispatchCompute(butterFlyCS, butterflyKernel, butterFlyTex.width, butterFlyTex.height / 8, 1);
+        var fence = _commandBuffer.CreateGraphicsFence(GraphicsFenceType.AsyncQueueSynchronisation, SynchronisationStageFlags.ComputeProcessing);
+        _commandBuffer.WaitOnAsyncGraphicsFence(fence);
 
-        
         FFT(renderData.GetRenderTexArray()[0]);
         FFT2D(renderData.displacementDataArray[0]);
         FFT2D(renderData.normalDataArray[0]);
