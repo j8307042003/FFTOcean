@@ -79,11 +79,13 @@ float PhilipSpectrum(float amplitude, float2 wavevector, float2 wind, float grav
 	float waveLength = length(wavevector);
 	float windLength = length(wind);
 
+	if (waveLength == 0.0 || windLength == 0.0) return 0.0;
+
     //float L = ((windLength * windLength) * (windLength * windLength)) / gravity;
 	float L = (windLength * windLength) / gravity;
 
-	//return (amplitude * exp(-1 / ((waveLength * L) * (waveLength * L))) * (dot_wave_wind * dot_wave_wind)) * exp(-pow(waveLength, 2) * 1) / (waveLength * waveLength * waveLength * waveLength);
-	return (amplitude * exp(-1 / ( (waveLength * L) * (waveLength * L) ) ) * (dot_wave_wind * dot_wave_wind)) * exp(-pow(waveLength, 2) * 1) / (waveLength * waveLength);
+	return (amplitude * exp(-1 / ((waveLength * L) * (waveLength * L))) * (dot_wave_wind * dot_wave_wind)) * exp(-pow(waveLength, 2) * 1) / (waveLength * waveLength * waveLength * waveLength);
+	//return (amplitude * exp(-1 / ( (waveLength * L) * (waveLength * L) ) ) * (dot_wave_wind * dot_wave_wind)) * exp(-pow(waveLength, 2) * 1) / (waveLength * waveLength);
 }
 
 

@@ -43,7 +43,7 @@ void Tick(uint3 id : SV_DispatchThreadID)
 
     //float2 uv = id.xy - id.xy / 2.0 + 0.0001; // float2(2, 2);
 	float2 uv = id.xy/width; // float2(2, 2);
-    int2 t = ((int2)id.xy) - (int)width / 2;
+    int2 t = ((int2)id.xy) - (int)width / 2.0;
     //t = id.xy;
 
     //float2 k = ((uv) * 2.0 * 3.1415926) / unitLen;
@@ -54,6 +54,7 @@ void Tick(uint3 id : SV_DispatchThreadID)
     float len_k = length(k);
     float inv_k = len_k == 0 ? 0 : 1 / len_k;
     float2 windDir = wind.xy;
+	
 
 	float2 gp0 = gaussian_pair(uv + float2(0.6, 0.1), time);
     float ps = PhilipSpectrum(amplitude, k, windDir, 9.8);

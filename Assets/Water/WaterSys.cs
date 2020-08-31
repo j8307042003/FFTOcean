@@ -22,7 +22,8 @@ public class WaterSysHelper
 
     public static RenderTexture CreateRenderTexture(int width, int height, RenderTextureFormat format = RenderTextureFormat.ARGBFloat, FilterMode filterMode = FilterMode.Point)
     {
-        RenderTexture rt = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBFloat);
+        //RenderTexture rt = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBFloat);
+        RenderTexture rt = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf);
         rt.hideFlags = HideFlags.DontSave;
         rt.filterMode = filterMode;
         rt.wrapMode = TextureWrapMode.Repeat;
@@ -121,9 +122,9 @@ public class WaterSys : MonoBehaviour {
     public float foamExistTime = 1.0f;
 
 
-    public RenderTexture displacement;
+    RenderTexture displacement;
     public WaterRenderData renderData;
-    public float unit_length = 1000.0f;
+    public float waveLength = 1000.0f;
     ComputeShader waveCompute;
     int waveKernel;
     ComputeShader waveTexture;
@@ -202,10 +203,8 @@ public class WaterSys : MonoBehaviour {
 
     public Vector2 direction;
     public Vector2 wind;
-    public float steepness;
     public float amplitude;
-    public float waveLength;
-    public float speed;
+
 
     Texture2D tmp;
 
@@ -231,7 +230,7 @@ public class WaterSys : MonoBehaviour {
             tmp.Apply();
         }
 
-        renderData.unitLength = unit_length;
+        renderData.unitLength = waveLength;
 
         _commandBuffer = new CommandBuffer();
 
@@ -245,10 +244,8 @@ public class WaterSys : MonoBehaviour {
 
         _commandBuffer.SetComputeVectorParam(waveCompute, Shader.PropertyToID("direction"), direction);
         _commandBuffer.SetComputeVectorParam(waveCompute, Shader.PropertyToID("wind"), wind);
-        _commandBuffer.SetComputeFloatParam(waveCompute, Shader.PropertyToID("steepness"), steepness);
         _commandBuffer.SetComputeFloatParam(waveCompute, Shader.PropertyToID("amplitude"), amplitude);
         _commandBuffer.SetComputeFloatParam(waveCompute, Shader.PropertyToID("waveLength"), waveLength);
-        _commandBuffer.SetComputeFloatParam(waveCompute, Shader.PropertyToID("speed"), speed);
 
 
 
@@ -371,7 +368,7 @@ public class WaterSys : MonoBehaviour {
 
     void FFT2D(RenderTexture renderTex)
     { 
-        for (int i = 0; i < 0; i++)
+        for (int i = 0; i < it; i++)
         {
             _commandBuffer.SetComputeIntParam(FFTCompute, Shader.PropertyToID("stage"), i);
             _commandBuffer.SetComputeTextureParam(FFTCompute, FFT2DKernel, Shader.PropertyToID("Result"), pingpongTex);

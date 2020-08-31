@@ -43,13 +43,7 @@ void FFT (uint3 id : SV_DispatchThreadID)
 void FFT_horizontal (uint3 id : SV_DispatchThreadID)
 {
     float4 butterfly = ButterflyTex[uint2(stage, id.y)];
-    butterfly.z = min(511, max(0, butterfly.z));
-    //butterfly.z = id.y;
-	//butterfly.z = floor(clamp(butterfly.z, 10, 255));
-	int i = floor(butterfly.z);
-	//i = 255;
-	//int i = butterfly.z;
-    float2 a = pingpong[int2(id.x, i)].xy;
+    float2 a = pingpong[int2(id.x, butterfly.z)].xy;
     float2 b = pingpong[uint2(id.x, butterfly.w)].xy;
 
     //a.xy = max(-1, min(1, a.xy));

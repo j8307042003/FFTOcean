@@ -86,7 +86,7 @@ Shader "Unlit/WaterDisplacement"
                 worldPos.y += displacement.y * _Scale;
 				o.worldPos = worldPos;
                 worldPos.xz -= float2(displacement.x, displacement.z) * _DisplacementScale;
-                //o.worldPos = worldPos;
+                o.worldPos = worldPos;
 
                 v.vertex = mul(unity_WorldToObject, worldPos);
                 o.vertex = UnityObjectToClipPos(v.vertex);
@@ -158,10 +158,10 @@ Shader "Unlit/WaterDisplacement"
 				float3 light = _LightColor0.xyz;
 				float3 lightDir = _WorldSpaceLightPos0.xyz;
                 float3 worldPos = i.worldPos;
-				float3 viewDir = normalize(_WorldSpaceCameraPos - worldPos);
+				float3 viewDir = -normalize(_WorldSpaceCameraPos - worldPos);
 				
 				//Fresnel
-				float cosTheta = dot(normalize(i.worldNormal.xyz), viewDir);
+				float cosTheta = dot(normalize(i.worldNormal.xyz), -viewDir);
 				float reflective = Fresnel(1, 1.325, cosTheta);
 				reflective = smoothstep(0, 1, reflective);
 
@@ -171,7 +171,7 @@ Shader "Unlit/WaterDisplacement"
 				float3 diffuse = Unity_GlossyEnvironment(UNITY_PASS_TEXCUBE(unity_SpecCube0), float4(1, 1, 1, 1), glossyEnvData).xyz * light;
 
 				//Specular
-				float3 reflectDir = reflect(viewDir, i.worldNormal);
+				float3 reflectDir = reflect(-viewDir, i.worldNormal);
 				float3 dirLightSpecular = pow(saturate(dot(-reflectDir, _WorldSpaceLightPos0.xyz)), 10) * light;
 				glossyEnvData.reflUVW = -reflectDir;
 				glossyEnvData.reflUVW.y = abs(glossyEnvData.reflUVW.y);
@@ -183,7 +183,7 @@ Shader "Unlit/WaterDisplacement"
 				float3 scatterColor = float3(0.0, 0.5, 0.0);
 
 				float3 H = normalize(-i.worldNormal.xyz + _WorldSpaceLightPos0.xyz);
-				float ViewDotH = pow(saturate(dot(viewDir, -H)), 1) * 30 * _SSS_Wrap;
+				float ViewDotH = pow(saturate(dot(viewDir, H)), 4) * 30 * _SSS_Wrap;
 				float3 waveColor = saturate(_SSS_Tint.xyz * ViewDotH * light);
                 scatterColor = waveColor;
 				//scatterColor = 0;
@@ -205,10 +205,11 @@ Shader "Unlit/WaterDisplacement"
                 col.xyz += w;
 				*/
 				float w = foam.x * 0.6;
-				//col.xyz += w;
+				col.xyz += w;
 
 				//col.xyz += length(i.worldNormal.xz);
-
+				//col.xyz = scatterColor;
+				//col.xyz = dot(i.worldNormal.xyz, viewDir.xyz);
 				return col;
 			}
 			ENDCG

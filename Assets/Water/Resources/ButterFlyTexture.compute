@@ -37,7 +37,7 @@ void Tick (uint3 id : SV_DispatchThreadID)
 
     int butterflywing = fmod(id.y, pow(2, id.x+1)) < pow(2, id.x) ? 1 : 0;
     
-    if (butterflywing <= 0) twiddle = -twiddle;
+    //if (butterflywing <= 0) twiddle = -twiddle;
     if (id.x == 0 ){
         /*
         int rv = 0;
@@ -66,9 +66,9 @@ void Tick (uint3 id : SV_DispatchThreadID)
         //Result[id.xy] = float4(0, 1, 1, 1);
     }
     else{
-        //Result[id.xy] = float4(twiddle.x, twiddle.y, id.y + (butterflywing > 0 ? 0 : -butterflyspan), id.y + (butterflywing > 0 ? butterflyspan : 0));
+        Result[id.xy] = float4(twiddle.x, twiddle.y, id.y + (butterflywing > 0 ? 0 : -butterflyspan), id.y + (butterflywing > 0 ? butterflyspan : 0));
 		//Result[id.xy] = float4(twiddle.x, twiddle.y, id.y, id.y + (butterflywing > 0 ? butterflyspan : -butterflyspan));
-		Result[id.xy] = float4(twiddle.x, twiddle.y, id.y, id.y);
+		//Result[id.xy] = float4(twiddle.x, twiddle.y, id.y, id.y);
     }
     
 }
