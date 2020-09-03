@@ -20,7 +20,7 @@ public class WaterSysHelper
         return s;
     }
 
-    public static RenderTexture CreateRenderTexture(int width, int height, RenderTextureFormat format = RenderTextureFormat.ARGBFloat, FilterMode filterMode = FilterMode.Point)
+    public static RenderTexture CreateRenderTexture(int width, int height, RenderTextureFormat format = RenderTextureFormat.ARGBFloat, FilterMode filterMode = FilterMode.Point, int antiAliasing = 1)
     {
         //RenderTexture rt = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBFloat);
         RenderTexture rt = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf);
@@ -29,6 +29,7 @@ public class WaterSysHelper
         rt.wrapMode = TextureWrapMode.Repeat;
         rt.enableRandomWrite = true;
         rt.useMipMap = false;
+        rt.antiAliasing = antiAliasing;
         rt.Create();
 
 
@@ -151,6 +152,9 @@ public class WaterSys : MonoBehaviour {
     Shader FoamUpdateShader;
     Material foamBlitMat;
 
+    public WaveParticle waveParticle;
+    Material overlapMat;
+
     private void Awake()
     {
         Initialize();
@@ -192,6 +196,9 @@ public class WaterSys : MonoBehaviour {
         foamBlitMat = new Material(FoamUpdateShader);
 
         displacement = renderData.displacementMapDataArray[0];
+
+
+        overlapMat = new Material(WaterSysHelper.LoadShader("OverlapTexture"));
     }
 
 
@@ -261,7 +268,16 @@ public class WaterSys : MonoBehaviour {
         FFT2D(renderData.normalDataArray[0]);
         FFT2D(renderData.foamJacobianDataArray[0]);
         FFT(renderData.waveFoamJxy[0]);
-        
+
+        if (waveParticle != null)
+        {
+            var rt = waveParticle.GetResultTexture();
+            overlapMat.SetTexture("Tex1", renderData.GetRenderTexArray()[0]);
+            overlapMat.SetTexture("Tex2", rt);
+            _commandBuffer.Blit(null, pingpongTex, overlapMat);
+            _commandBuffer.Blit(pingpongTex, renderData.GetRenderTexArray()[0]);
+        }
+
         _commandBuffer.SetComputeTextureParam(waveTexture, waveTextureKernel, Shader.PropertyToID("WaveHeightField"), renderData.GetRenderTexArray()[0]);
         _commandBuffer.SetComputeTextureParam(waveTexture, waveTextureKernel, Shader.PropertyToID("WaveHorizontal"), renderData.displacementDataArray[0]);
         _commandBuffer.SetComputeTextureParam(waveTexture, waveTextureKernel, Shader.PropertyToID("WaveDisplacement"), renderData.displacementMapDataArray[0]);
@@ -286,7 +302,9 @@ public class WaterSys : MonoBehaviour {
         _commandBuffer.Blit(renderData.waveFoam[0], pingpongTex, foamBlitMat);
         _commandBuffer.Blit(pingpongTex, renderData.waveFoamUpdate[0]);
 
-        
+
+
+
         UnityEngine.Profiling.Profiler.BeginSample("My Command Buffer");
         Graphics.ExecuteCommandBuffer(_commandBuffer);
         UnityEngine.Profiling.Profiler.EndSample();
@@ -393,11 +411,13 @@ public class WaterSys : MonoBehaviour {
     private void OnGUI()
     {
         //if (bShowDisplacement) GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementMapDataArray[0], ScaleMode.StretchToFill, false);
-        if (bShowDisplacement) GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.GetRenderTexArray()[0], ScaleMode.StretchToFill, false);
+        //if (bShowDisplacement) GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.GetRenderTexArray()[0], ScaleMode.StretchToFill, false);
+        if (bShowDisplacement) GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementMapDataArray[0], ScaleMode.StretchToFill, false);
+        
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.GetRenderTexArray()[0]);
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementDataArray[0], ScaleMode.StretchToFill, false);
-        //if(bShowNormal)GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.normalDataArray[0], ScaleMode.StretchToFill, false);
-        if(bShowNormal)GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.waveFoamUpdate[0], ScaleMode.StretchToFill, false);
+        if(bShowNormal)GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.normalDataArray[0], ScaleMode.StretchToFill, false);
+        //if (bShowNormal)GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.waveFoamUpdate[0], ScaleMode.StretchToFill, false);
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), renderData.displacementMapDataArray[0], ScaleMode.StretchToFill, false);
 
         //GUI.DrawTexture(new Rect(10, 10, 500, 500), butterFlyTex, ScaleMode.StretchToFill, false);
